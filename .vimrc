@@ -1,16 +1,19 @@
-"set nocompatible " required for vundle
-"filetype off " required for vundle
+" This change was made as test user?! Hopefully
+" What about this really important change
 "
-"set rtp+=~/.vim/bundle/Vundle.vim " required for vundle
-"call vundle#begin() " required for vundle
+set nocompatible " required for vundle
+filetype off " required for vundle
+"
+set rtp+=~/.vim/bundle/Vundle.vim " required for vundle
+call vundle#begin() " required for vundle
 "Plugin 'VundleVim/Vundle.vim' " required for vundle
 "Plugin 'fatih/vim-go' " go syntax highlighting
 "Plugin 'fatih/molokai' " nicer go colour scheme
 "Plugin 'octol/vim-cpp-enhanced-highlight' " C++ syntax highlighting
 "Plugin 'tikhomirov/vim-glsl' " glsl highlighting
-"call vundle#end() " required for vundle
-filetype plugin indent on " required for vundle
+call vundle#end() " required for vundle
 syntax on
+filetype plugin indent on " required for vundle
 
 " no net on work linux machine so these are commented out
 " just place molokai.vim in ~/.vim/syntax (if I remember correctly?)
@@ -58,11 +61,15 @@ function! Tab(...)
     execute "set shiftwidth=".tabw
     " press tab -> 4 spaces
     set expandtab
+    " not exactly sure if I want this in my life but it sounds good?
+    "set smarttab
+    "set smartindent
+    "set autoindent
 
 endfunction
 
 " don't want to print crap on startup
-call Tab(4,0)
+"call Tab(2,0)
 
 set number
 "set relativenumber " performance killer
@@ -72,9 +79,6 @@ set whichwrap+=<,>,h,l,[,] " linewrap for cursor
 set backspace=indent,eol,start " allow backspace past start of insert
 set virtualedit=block " can vis block into empty space
 set wildmode=longest,list " bash like file opening!
-
-" disables any auto-commenting
-autocmd FileType * setlocal formatoptions-=c formatoptions-=r formatoptions-=o
 
 " vulkan highlighting, from ~/.vim/syntax/vulkan1.0.vim
 "autocmd FileType cpp,c source ~/.vim/syntax/vulkan1.0.vim
@@ -104,6 +108,30 @@ hi Visual term=reverse cterm=reverse guibg=Grey
 
 " type :Pwd to print working dir of file
 command! Pwd echo expand("%:p")
+
+" enables cursor line so can see lineup on F8
+map <F8> :set cursorline!<CR> <bar> :set cursorcolumn!<CR>
+
+" set default
+call Tab(4,0)
+
+" so that Makefile.inc is recognised as a Makefile by vim
+autocmd BufNewFile,BufRead Makefile.* set filetype=make
+"autocmd FileType *.inc setlocal filetype=make
+
+" executed on opening of filetypes
+" also working for Makefile.inc etc.
+" sets Makefile tab to 8 and doesn't convert tab->spaces
+autocmd FileType make set noexpandtab tabstop=8 shiftwidth=8 softtabstop=0
+
+" python, indent of 4
+autocmd FileType python :call Tab(4,0)
+
+" c like files, indent of 2
+autocmd FileType c,cpp,h :call Tab(2,0)
+
+" disables any auto-commenting
+autocmd FileType * setlocal formatoptions-=c formatoptions-=r formatoptions-=o
 
 "
 "filetype off
