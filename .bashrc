@@ -13,10 +13,14 @@ set -o vi
 # linewrapping
 export TERM="xterm-256color"
 
-#function parse_git_branch {
-#    ref=$(git symbolic-ref HEAD 2>/dev/null) || return
-#    echo "("${ref#refs/heads/}")"
-#}
+function parse_git_branch {
+    local ref=$(git symbolic-ref HEAD 2>/dev/null)
+    if [ -z "$ref" ]; then
+      echo "@"
+    else
+      echo "("${ref#refs/heads/}")"
+    fi
+}
 
 #export PS1="\s->\W$ "
 
@@ -24,52 +28,9 @@ export TERM="xterm-256color"
 
 # ezprompt.net for PS1 creation
 # get current branch in git repo
-function parse_git_branch() {
-	BRANCH=`git branch 2> /dev/null | sed -e '/^[^*]/d' -e 's/* \(.*\)/\1/'`
-	if [ ! "${BRANCH}" == "" ]
-	then
-		STAT=`parse_git_dirty`
-		echo "[${BRANCH}${STAT}]"
-	else
-		echo "@"
-	fi
-}
-
-# get current status of git repo
-function parse_git_dirty {
-	status=`git status 2>&1 | tee`
-	dirty=`echo -n "${status}" 2> /dev/null | grep "modified:" &> /dev/null; echo "$?"`
-	untracked=`echo -n "${status}" 2> /dev/null | grep "Untracked files" &> /dev/null; echo "$?"`
-	ahead=`echo -n "${status}" 2> /dev/null | grep "Your branch is ahead of" &> /dev/null; echo "$?"`
-	newfile=`echo -n "${status}" 2> /dev/null | grep "new file:" &> /dev/null; echo "$?"`
-	renamed=`echo -n "${status}" 2> /dev/null | grep "renamed:" &> /dev/null; echo "$?"`
-	deleted=`echo -n "${status}" 2> /dev/null | grep "deleted:" &> /dev/null; echo "$?"`
-	bits=''
-	if [ "${renamed}" == "0" ]; then
-		bits=">${bits}"
-	fi
-	if [ "${ahead}" == "0" ]; then
-		bits="*${bits}"
-	fi
-	if [ "${newfile}" == "0" ]; then
-		bits="+${bits}"
-	fi
-	if [ "${untracked}" == "0" ]; then
-		bits="?${bits}"
-	fi
-	if [ "${deleted}" == "0" ]; then
-		bits="x${bits}"
-	fi
-	if [ "${dirty}" == "0" ]; then
-		bits="!${bits}"
-	fi
-	if [ ! "${bits}" == "" ]; then
-		echo " ${bits}"
-	else
-		echo ""
-	fi
-}
-
+# TODO: this git crap from this site is sooo slow
+# subshells problem?
+# think actually git status is slow as poop
 export PS1="\[\e[36m\]\h\[\e[m\]\[\e[32m\]\`parse_git_branch\`\[\e[m\]\[\e[31m\]\W\[\e[m\]\\$ "
 
 
@@ -107,4 +68,61 @@ function touchy() {
 }
 export -f touchy
 
+# disables default ctrl + S sending XOF pause
+# allows use of it while reverse searching
+stty -ixon
 
+alias st="git status"
+
+# trying for now, more powerful pattern matching
+# eg ls !(dont_see_me*)
+shopt -s extglob
+
+# see all tracked files on current branch
+function gitls() {
+    local b=$(git branch | grep '*')
+    # remove prefix
+    b=${b#* }
+    git ls-tree -r "$b" --name-only
+}
+export -f gitls
+
+# to move about more easily
+# ie. save y; cd ./././aslda; cd...
+# load y
+function save() {
+    local in="$1"
+    if [ -z "$in" ]; then
+        in="b3c18ccb909a4d6d8b73535124a5130c"
+    fi
+    local cmd="$in=$(pwd)"
+    eval "$cmd"
+    export "$in"
+}
+export -f save
+
+function load() {
+    local in="$1"
+    if [ -z "$in" ]; then
+        in="b3c18ccb909a4d6d8b73535124a5130c"
+    fi
+    local cmd="cd \$$in"
+    eval "$cmd"
+}
+export -f load
+
+function swap() {
+    if [ -z "$1" ] || [ -z "$2" ]; then
+        echo "Provide two files to swap"
+    fi
+    tmp=$(mktemp)
+    mv "$1" "$tmp"
+    mv "$2" "$1"
+    mv "$tmp" "$2"
+}
+export -f swap
+
+# increase history line limit and file size limit
+shopt -s histappend
+HISTFILESIZE=5000000
+HISTSIZE=25000
