@@ -1,6 +1,3 @@
-" This change was made as test user?! Hopefully
-" What about this really important change
-"
 "set nocompatible " required for vundle
 "filetype off " required for vundle
 "
