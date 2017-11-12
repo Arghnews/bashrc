@@ -6,10 +6,10 @@ filetype off " required for vundle
 "
 set rtp+=~/.vim/bundle/Vundle.vim " required for vundle
 call vundle#begin() " required for vundle
-"Plugin 'VundleVim/Vundle.vim' " required for vundle
+Plugin 'VundleVim/Vundle.vim' " required for vundle
 "Plugin 'fatih/vim-go' " go syntax highlighting
-"Plugin 'fatih/molokai' " nicer go colour scheme
-"Plugin 'octol/vim-cpp-enhanced-highlight' " C++ syntax highlighting
+Plugin 'fatih/molokai' " nicer go colour scheme
+Plugin 'octol/vim-cpp-enhanced-highlight' " C++ syntax highlighting
 "Plugin 'tikhomirov/vim-glsl' " glsl highlighting
 call vundle#end() " required for vundle
 syntax on
