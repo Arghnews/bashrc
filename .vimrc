@@ -6,11 +6,12 @@ filetype off " required for vundle
 "
 set rtp+=~/.vim/bundle/Vundle.vim " required for vundle
 call vundle#begin() " required for vundle
-Plugin 'VundleVim/Vundle.vim' " required for vundle
+"Plugin 'VundleVim/Vundle.vim' " required for vundle
+"Plugin 'fatih/molokai' " nicer go colour scheme
+"Plugin 'octol/vim-cpp-enhanced-highlight' " C++ syntax highlighting
 "Plugin 'fatih/vim-go' " go syntax highlighting
-Plugin 'fatih/molokai' " nicer go colour scheme
-Plugin 'octol/vim-cpp-enhanced-highlight' " C++ syntax highlighting
 "Plugin 'tikhomirov/vim-glsl' " glsl highlighting
+"Plugin 'scrooloose/nerdcommenter' " comments plugin
 call vundle#end() " required for vundle
 syntax on
 filetype plugin indent on " required for vundle
@@ -101,6 +102,8 @@ noremap <Right> <NOP>
 noremap <Q> <NOP>
 " man page
 noremap <K> <NOP>
+" ZZ is write and quit, but I caps lock and then try to centre screen
+noremap <Z> <NOP>
 
 " must be after molokai
 " make visual highlighted text more readable - after syntax on
@@ -131,7 +134,9 @@ autocmd FileType python :call Tab(4,0)
 autocmd FileType c,cpp,h :call Tab(2,0)
 
 " disables any auto-commenting
-autocmd FileType * setlocal formatoptions-=c formatoptions-=r formatoptions-=o
+"autocmd FileType * setlocal formatoptions-=c formatoptions-=r formatoptions-=o
+
+
 
 "
 "filetype off

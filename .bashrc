@@ -59,18 +59,25 @@ function touchy() {
     echo ""
     echo "set -euf -o pipefail"
     echo ""
-    chmod u+x "$1"
     } > "$1"
     # e - exit on command fail
     # u - unset var = exit
     # f - disable globbing - shopt -s failglob - for non-expanded globs to err
     # set -o pipefail - if any command in a pipeline errors, script exits
+    # could do this with read/heredoc instead - see workrc
+    chmod u+x "$1"
 }
 export -f touchy
 
+# now git commits look soo pretty
+export VISUAL=vim
+export EDITOR=vim
+
 # disables default ctrl + S sending XOF pause
 # allows use of it while reverse searching
-stty -ixon
+# condition (bashism) checks for interactive session
+# else get loads of stty ioctl errors
+[[ $- == *i* ]] && stty -ixon
 
 alias st="git status"
 
