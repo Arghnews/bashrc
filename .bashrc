@@ -6,8 +6,8 @@ export TERM="screen-256color"
 
 # increase history line limit and file size limit
 shopt -s histappend
-HISTFILESIZE=5000000
-HISTSIZE=25000
+export HISTFILESIZE=5000000
+export HISTSIZE=250000
 
 # check the window size after each command and, if necessary,
 # update the values of LINES and COLUMNS.
@@ -18,14 +18,20 @@ shopt -s checkwinsize
 #export PS1="\h@\W-> \[$(tput sgr0)\]"
 
 # ezprompt.net for PS1 creation
-# get current branch in git repo
-# TODO: this git crap from this site is sooo slow
-# subshells problem?
-# think actually git status is slow as poop
-export PS1="\[\e[36m\]\h\[\e[m\]\[\e[32m\]\`parse_git_branch\`\[\e[m\]\[\e[31m\]\W\[\e[m\]\\$ "
+# https://stackoverflow.com/a/3058390/8594193
+LIGHT_RED="\[\033[1;31m\]"
+RESTORE="\[\033[0m\]" #0m restores to the terminal's default colour
+
+# Run every time command is hit
+# Remove 148 - code 128 + signal SIGTSTP - every time hit control-z
+# remove exit code after 2nd press
+PROMPT_COMMAND='RET="$?"; ERR_MSG=""; if [ $RET -ne 0 ] && [ $RET -ne 148 ]; then ERR_MSG=" $RET "; fi'
+export PS1="\[\e[36m\]\h\[\e[m\]\[\e[32m\]\$(parse_git_branch)\\[\e[m\]\[\e[31m\]\W\[\e[m\]$LIGHT_RED\$ERR_MSG${RESTORE}$ "
 
 alias grep="grep --color=auto"
 alias ls="ls --color=auto"
+
+alias pgrep="pgrep --list-full"
 
 # no displaying hidden files when pressing tab
 bind "set match-hidden-files off"
@@ -34,8 +40,6 @@ bind "set match-hidden-files off"
 alias json="python -mjson.tool"
 
 export SHELL=/bin/bash
-
-alias m="make && ./program"
 
 eval $(dircolors -b "$HOME"/.dircolors)
 
@@ -68,11 +72,18 @@ PATH=$PATH:$HOME/.bin
 # prettier git log using git lg
 git config --global alias.lg "log --color --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr)' --abbrev-commit"
 
-function da() {
+function da()
+{
     date "+%Y%m%d"
 }
 
-function parse_git_branch {
+function m()
+{
+    make && ./program
+}
+
+function parse_git_branch
+{
     local ref=$(git symbolic-ref HEAD 2>/dev/null)
     if [ -z "$ref" ]; then
         echo "@"
@@ -86,67 +97,214 @@ function echo_err()
     echo 1>&2 "$@"
 }
 
-function touchy() {
+function contains()
+{
+    # String $1 contains substring $2
+    case "$1" in *"$2"*) return 0;; esac
+    return 1
+}
+
+function touchy()
+{
     [ -f "$1" ] && echo_err "File exists: $1" && return 1
     {
         echo "#!/usr/bin/env bash"
         echo ""
-        echo "set -euf -o pipefail"
+        echo "set -u -o pipefail"
         echo ""
     } > "$1"
     # e - exit on command fail
     # u - unset var = exit
     # f - disable globbing - shopt -s failglob - for non-expanded globs to err
     # set -o pipefail - if any command in a pipeline errors, script exits
-    # could do this with read/heredoc instead - see workrc
+    # could do this with read/heredoc instead
     chmod u+x "$1"
 }
 
-# see all tracked files on current branch
-function gitls() {
+# See all tracked files on current branch
+function gitls()
+{
     local b=$(git branch | grep '*')
-    # remove prefix
+    # Remove prefix
     b=${b#* }
     git ls-tree -r "$b" --name-only
 }
 
-function swap() {
+function swap()
+{
+    # TODO: breaks if ROOT ISSEUES
+    # CURRENTLY THIS BREAKS IF BOTH FILED ARE OWNED BY ROOT and you're not root
 	# Swaps either two files or directories
     if { ! [[ -f "$1" && -f "$2" ]] && ! [[ -d "$1" && -d "$2" ]]; } \
 		|| [[ "$1" == "$2" ]] ; then
-        echo_err "Provide two files/directories to swap"
-        return 1
+        echo_err "Provide two files/directories to swap" && return 1
     fi
 	echo "Swapping $1 and $2"
 	local tmp=""
 	if [[ -f "$1" ]]; then tmp="$(mktemp)"; else tmp="$(mktemp -d)"; fi
     local mver="mv -T"
 	local exit_status=0
-    $mver "$1" "$tmp" && $mver "$2" "$1" && $mver "$tmp" "$2"
+    $mver "$1" "$tmp" && $mver "$2" "$1" && sudo $mver "$tmp" "$2"
 	local exit_status=$?
 	[[ "$exit_status" -ne 0 ]] && echo_err "Something went wrong with swap -"\
-		"temporary path to what may be swapped file: $tmp" && return 1
+		"temporary path to what may be swapped file: $tmp"
+    return $exit_status
 }
 
 function ccc()
 {
-    # TODO: add argument for compiler and program arg passing properly
-	# add smarter compiler discovery to search for latest of gcc/clang
-	# would be nice to have a way to quickly disable optimisations for faster compile/not
-    local cpp="$1"
-    local suffix="${cpp##*.}"
-    ! [ "$suffix" == "cpp" ] && echo_err "Warning: file suffix not .cpp"
-    local name="${cpp%.*}"
-    shift
-    #echo "$name"
-    #dir="$(dirname "$cpp")"
-    # For filesystem linkage
-    local flags=""
-    flags+="-Wall -Wextra -fverbose-asm -Wfloat-equal -Wshadow -Wwrite-strings "
-    flags+="-Wswitch-enum -Wunreachable-code -Wconversion -Wcast-qual -Wstrict-overflow=5"
-	# Other options from a SO post to also look into
-    #local opts="-pedantic -Wall -Wextra -Wcast-align -Wcast-qual -Wctor-dtor-privacy -Wdisabled-optimization -Wformat=2 -Winit-self -Wlogical-op -Wmissing-include-dirs -Wnoexcept -Wold-style-cast -Woverloaded-virtual -Wredundant-decls -Wshadow -Wsign-conversion -Wsign-promo -Wstrict-null-sentinel -Wstrict-overflow=5 -Wswitch-default -Wundef -Wno-error=unused -Werror=return-type"
-    clang++-6.0 -g $flags -O2 -std=c++17 "$cpp" -o "$name" -lstdc++fs && "./$name" $@
+    # Urgh, installed boost myself on ubuntu 18.10 into /usr/local (include,
+    # lib) then use time - get linker issues, urgh
+    # Look into header only boost? Or shared (but then still need args I think)
+    # ccc -O3 t.cpp -L/usr/local/lib -lboost_timer -lboost_chrono -Wl,-rpath=/usr/local/lib --
+
+    local compiler executable_name
+    declare -a user_compiler_args program_args filenames \
+        compiler_default_args_to_add
+
+    declare -A compiler_arg_defaults
+    compiler_arg_defaults["-O.*"]="-O2"
+    compiler_arg_defaults["-march=.*"]="-march=native"
+    compiler_arg_defaults["-std=.*"]="-std=c++17"
+
+
+    # Find compiler
+    # if contains "$PATH" " "
+    contains "$PATH" " " && echo_err "Spaces in \$PATH unsupported" && return 1
+    if [ -z "$compiler" ]
+    then
+        compiler="$(find ${PATH//:/ } -maxdepth 1 \( -type f -o -type l \) \
+            \( -name clang++* \) 2>/dev/null | sort -uV | tail -n 1)"
+    fi
+    if [ -z "$compiler" ]
+    then
+        compiler="$(which g++)"
+    fi
+    if [ -z "$compiler" ]
+    then
+        echo_err "Could not find clang++ or g++ compiler in \$PATH" && return 1
+    fi
+
+
+    # Fill compiler and user args from command line
+    for arg in "$@"
+    do
+        case "$arg" in
+            --)
+                user_compiler_args=(
+                                    "${user_compiler_args[@]}"
+                                    "${program_args[@]}"
+                                    )
+                program_args=()
+                ;;
+            *) program_args+=("$arg");;
+        esac
+    done
+
+
+    # Extract and remove filenames mutating compiler args (or user args if not
+    # provided); find executable name
+    declare -a non_filenames
+    declare -n args=user_compiler_args
+
+    # declare -n requires bash > 4.3 (check BASH_VERSINFO array)
+    # If not can just search through both
+    # ie. args=("$program_args{[@]}" "${user_compiler_args[@]}")
+    if [ "${#user_compiler_args[@]}" -eq 0 ]
+    then
+        declare -n args=program_args
+    fi
+    for arg in "${args[@]}"
+    do
+        case "$arg" in
+            *.c|*.cpp|*.cxx) filenames+=("$arg");;
+            *) non_filenames+=("$arg");;
+        esac
+    done
+    args=("${non_filenames[@]}")
+
+    [ "${#filenames[@]}" -eq 0 ] && echo_err "Could not find filename" \
+        && return 1
+    executable_name="${filenames[0]%.*}"
+
+
+    # Find if -o specified and if so don't append it and extract executable name
+    for ((i = 0; i < ${#user_compiler_args[@]}; ++i))
+    do
+        if [ "${user_compiler_args[$i]}" = "-o" ]
+        then
+            declare -i next=$(( i + 1 ))
+            [ "${#user_compiler_args[@]}" -eq "$next" ] && \
+                echo_err "No executable name to -o compile option" && return 1
+            executable_name="${user_compiler_args[$next]}"
+            break
+        fi
+    done
+
+    # Add compiler output executable argument if not present
+    compiler_arg_defaults["-o"]="-o $executable_name"
+
+
+    # Find and save arguments that are absent and default values should be used
+    for default in "${!compiler_arg_defaults[@]}"
+    do
+        add_default=true
+        regex="^${default}$"
+        declare -i i
+        for ((i = 0; i < ${#user_compiler_args[@]}; ++i))
+        do
+            # echo "Compiler arg ${user_compiler_args[$i]}"
+            if [[ "${user_compiler_args[$i]}" =~ $regex ]]
+            then
+                add_default=false
+                break
+            fi
+        done
+        if [ "$add_default" = true ]
+        then
+            compiler_default_args_to_add+=("${compiler_arg_defaults[$default]}")
+        fi
+    done
+
+
+    # Compiler flags that are always added
+    declare -a compiler_flags=(
+                    "-g"
+                    "-Wall"
+                    "-Wextra"
+                    "-pedantic"
+                    "-Wfloat-equal"
+                    "-Wwrite-strings"
+                    "-Wswitch-enum"
+                    "-Wunreachable-code"
+                    "-Wconversion"
+                    "-Wcast-qual"
+                    "-Wstrict-overflow=5"
+                    "-Werror=shadow"
+                    "-fverbose-asm"
+                    "-lstdc++fs"
+                    )
+
+
+    # Actual cmds
+    declare -a compile_cmd=(
+                    "${compiler}"
+                    "${compiler_flags[@]}"
+                    "${compiler_default_args_to_add[@]}"
+                    "${user_compiler_args[@]}"
+                    "${filenames[@]}"
+                    )
+
+    if ! contains "$executable_name" "/"
+    then
+        executable_name="./$executable_name"
+    fi
+    declare -a program_cmd=(
+                    "$executable_name"
+                    "${program_args[@]}"
+                    )
+
+    ${compile_cmd[@]} && ${program_cmd[@]}
 }
 
 function touchcpp()
@@ -158,10 +316,19 @@ function touchcpp()
     local space="  "
     # Using <<- with the dash to disable leading tabs - see heredoc
     cat <<- EOF >> "$1"
+		#include <algorithm>
+		#include <cassert>
 		#include <iostream>
-		
+		#include <string>
+		#include <vector>
+
+		//#include "prettyprint.hpp"
+
+		using namespace std::literals;
+
 		int main (int /*argc*/, char** /*argv*/)
 		{
+		${space}std::cout << std::boolalpha;
 		${space}std::cout << "Hello world!" << "\n";
 		}
 	EOF
@@ -170,7 +337,7 @@ function touchcpp()
 function touchpy3()
 {
     : "${1?"Provide py filename"}"
-    [ -f "$1" ] && echo_err "File with name $1 exists" && return 1
+    [ -f "$1" ] && echo_err_exit "File with name $1 exists"
 
     # Assumes file spacing is 4 spaces
     local space="    "
@@ -229,4 +396,4 @@ then
     export FZF_CTRL_T_COMMAND="$FZF_DEFAULT_COMMAND"
 fi
 
-
+# http://wiki.bash-hackers.org/syntax/pe

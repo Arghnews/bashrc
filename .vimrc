@@ -33,6 +33,9 @@ Plug 'pangloss/vim-javascript' " Javascript highlighting for react tutorial
 Plug 'ludovicchabant/vim-gutentags' " Better tag management etc
 Plug 'majutsushi/tagbar' " Sidebar for ctags based class overview
 
+" Universal ctags - but must be built and installed as system program
+" https://github.com/universal-ctags/ctags
+
 "Plug 'tpope/vim-fugitive' " Git plugin
 "Plug 'w0rp/ale' " Language client
 "Plug 'MaskRay/ccls' " Language server for C/C++ based on cquery
@@ -41,10 +44,12 @@ Plug 'majutsushi/tagbar' " Sidebar for ctags based class overview
 call plug#end() " Calls 'filetype plugin indent on' and 'syntax enable'
 
 " octol/vim-cpp-enhanced-highlight
+" static_cast<char*>() turns words static_cast from red to green when brackets
+" are placed after it with no space - look into
 let g:cpp_class_scope_highlight = 1
 let g:cpp_member_variable_highlight = 1
-let g:cpp_class_decl_highlight = 1
-let g:cpp_experimental_simple_template_highlight = 1
+"let g:cpp_class_decl_highlight = 1
+"let g:cpp_experimental_simple_template_highlight = 1
 "let g:cpp_experimental_template_highlight = 1
 let g:cpp_concepts_highlight = 1
 
@@ -62,6 +67,8 @@ nnoremap <c-n> :NERDTreeToggle<CR>
 " screen-256color this shouldn't be necessary
 "set t_Co=256 " This line is F*****G crucial it seems on DCS machines
 
+" With autoread to reload window
+au FocusGained,BufEnter * :checktime
 colorscheme molokai
 "let g:molokai_original = 1
 "let g:rehash256 = 1
@@ -119,7 +126,7 @@ endfunction
 nnoremap <F8> :call Cursorcross()<CR>
 inoremap <F8> <C-o>:call Cursorcross()<CR>
 
-" See ":help formatoptins" and ":help fo-table"
+" See ":help formatoptions" and ":help fo-table"
 set formatoptions=crqoj
 
 " So ":messages" cmd functions like normal vim and can use for plugin debug
@@ -151,8 +158,8 @@ set showcmd " Remove if slow - show cmd string in bottom right
 set showmode " Enable status line saying in insert or visual mode
 
 " Jumps to matching bracket on typing for sec*0.1*matchtime
-set showmatch
-set matchtime=10
+"set showmatch
+"set matchtime=10
 
 " Stolen from http://got-ravings.blogspot.com/2008/08/vim-pr0n-making-statuslines-that-own.html
 " Haven't yet bothered to understand it
@@ -299,3 +306,6 @@ nnoremap <Leader>z :TagbarTogglePause<CR>
 let g:tagbar_left = 1
 let g:tagbar_autoclose = 1
 let g:tagbar_show_visibility = 1
+
+" On raspberry pi set this to allow highlighting and right click in terminal
+" set mouse=
