@@ -391,7 +391,7 @@ if [ "command -v fd 1>/dev/null 2>&1" ]
 then
     #let $FZF_DEFAULT_COMMAND = 'ag --hidden --ignore .git -l -g ""'
     excludes="-E *.git -E *.tmp -E *.so -E *.swp -E *.o -E *.obj -E *.pyc "
-    excludes+="-E *.vim -E *.d -E ~.* -E *.d"
+    excludes+="-E *.vim -E *.d -E ~.* -E *.d -E tags"
     export FZF_DEFAULT_COMMAND="fd --type f --hidden --follow $excludes "
     export FZF_CTRL_T_COMMAND="$FZF_DEFAULT_COMMAND"
 fi

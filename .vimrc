@@ -33,13 +33,21 @@ Plug 'pangloss/vim-javascript' " Javascript highlighting for react tutorial
 Plug 'ludovicchabant/vim-gutentags' " Better tag management etc
 Plug 'majutsushi/tagbar' " Sidebar for ctags based class overview
 
+Plug 'tpope/vim-surround' " Better quote handling
+
+Plug 'Valloric/YouCompleteMe' " The monster
+" http://valloric.github.io/YouCompleteMe/#linux-64-bit
+
+" Plug 'w0rp/ale' " Language client
+
 " Universal ctags - but must be built and installed as system program
 " https://github.com/universal-ctags/ctags
 
 "Plug 'tpope/vim-fugitive' " Git plugin
-"Plug 'w0rp/ale' " Language client
 "Plug 'MaskRay/ccls' " Language server for C/C++ based on cquery
+" Next choice is clangd - cquery seems to be unmaintained
 "Plug 'mbbill/undotree' " Undo tree visualised
+"https://github.com/svermeulen/vim-easyclip - better clipboard stuffs
 
 call plug#end() " Calls 'filetype plugin indent on' and 'syntax enable'
 
@@ -224,6 +232,7 @@ nmap <Leader>L :Lines<CR>
 nmap <Leader>` :Marks<CR>
 "nmap <Leader>a :Ag -A 1 -B 1 --nocolor --silent -f --hidden -U -t<Space>
 "nmap <Leader>a :Ag<CR>
+" TODO: use grep if no ag installed
 nmap <Leader>a :Ag!<Space>
 nmap <Leader>A :Agraw<Space>
 nmap <Leader>r :Rg<Space>
@@ -309,3 +318,21 @@ let g:tagbar_show_visibility = 1
 
 " On raspberry pi set this to allow highlighting and right click in terminal
 " set mouse=
+
+" Paste into current buffer what plugins have been loaded in order
+command! ScriptnamesToCurrentBuffer put=execute('scriptnames')
+
+" Screw this for now - learn more of this (awful) scripting lang first
+" command! Bla redir @* |
+" function! Bla(...)
+"     let l:bla = " ".join(a:000)
+"     let l:bla = bla[1:]
+"     redir @* | echo bla | redir END
+" endfunction
+
+" Add global YouCompleteMe config file
+" This python file should have a Settings(**kwargs) function that returns the
+" flags given a filename
+" On the site for ycm it says use Settings - seems like it used to be
+" FlagsForFile
+let g:ycm_global_ycm_extra_conf="~/.vim/.ycm_extra_conf.py"
