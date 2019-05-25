@@ -153,12 +153,13 @@ function swap()
 
 function ccc()
 {
+
     # Urgh, installed boost myself on ubuntu 18.10 into /usr/local (include,
     # lib) then use time - get linker issues, urgh
     # Look into header only boost? Or shared (but then still need args I think)
     # ccc -O3 t.cpp -L/usr/local/lib -lboost_timer -lboost_chrono -Wl,-rpath=/usr/local/lib --
 
-    local compiler executable_name
+    local compiler executable_name verbose=false
     declare -a user_compiler_args program_args filenames \
         compiler_default_args_to_add
 
@@ -168,21 +169,25 @@ function ccc()
     compiler_arg_defaults["-std=.*"]="-std=c++17"
 
 
-    # Find compiler
-    # if contains "$PATH" " "
-    contains "$PATH" " " && echo_err "Spaces in \$PATH unsupported" && return 1
-    if [ -z "$compiler" ]
-    then
-        compiler="$(find ${PATH//:/ } -maxdepth 1 \( -type f -o -type l \) \
-            \( -name clang++* \) 2>/dev/null | sort -uV | tail -n 1)"
-    fi
-    if [ -z "$compiler" ]
-    then
-        compiler="$(which g++)"
-    fi
-    if [ -z "$compiler" ]
-    then
-        echo_err "Could not find clang++ or g++ compiler in \$PATH" && return 1
+    # Heredoc MUST be indented by actual tabs
+    read -r -d '' help_string <<- EOF
+	--                  If "--" is present, args before it are passed to the
+	                        compiler and those after to the program
+	--ccc-verbose       Print additional info (eg. compile line)
+	--ccc-gcc
+	--ccc-g++           (Not implemented yet) Use g++
+	--ccc-clang
+	--ccc-clang++       (Not implemented yet) Use clang++
+	--help              Print this help
+	EOF
+    # If called with only 1 argument and it matches a variant of "--help", print
+    # help and exit
+    if [ "$#" -eq 1 ]; then
+        case "$1" in -h|--h|-help|--help)
+            echo "$help_string"
+            return 0
+            ;;
+        esac
     fi
 
 
@@ -197,9 +202,40 @@ function ccc()
                                     )
                 program_args=()
                 ;;
+            --ccc-verbose)
+                verbose=true
+                ;;
+            --help)
+                ;;
             *) program_args+=("$arg");;
         esac
     done
+
+
+    # Find compiler
+    if [ -z "$compiler" ]
+    then
+        # Find clang if in PATH. This should deal with spaces, newlines and
+        # globs (they will not be expanded) in PATH and not change dotglob or
+        # IFS as it's run in a subshell.
+        compiler="$(
+            set -f
+            IFS=: path_arr=($PATH)
+            find "${path_arr[@]}" -maxdepth 1 \( -type f -o -type l \) \
+                \( -name "clang++*" \) \
+                2> >(grep -v \
+                    -e "Permission denied" -e "No such file or directory" >&2) \
+                | sort -uV | tail -n 1)"
+    fi
+    if [ -z "$compiler" ]
+    then
+        compiler="$(which g++)"
+    fi
+
+    if [ -z "$compiler" ]
+    then
+        echo_err "Could not find clang++ or g++ compiler in \$PATH" && return 1
+    fi
 
 
     # Extract and remove filenames mutating compiler args (or user args if not
@@ -248,8 +284,8 @@ function ccc()
     # Find and save arguments that are absent and default values should be used
     for default in "${!compiler_arg_defaults[@]}"
     do
-        add_default=true
-        regex="^${default}$"
+        local add_default=true
+        local regex="^${default}$"
         declare -i i
         for ((i = 0; i < ${#user_compiler_args[@]}; ++i))
         do
@@ -304,7 +340,11 @@ function ccc()
                     "${program_args[@]}"
                     )
 
-    ${compile_cmd[@]} && ${program_cmd[@]}
+    # echo "${compile_cmd[@]}" && ${program_cmd[@]}
+    if [ "$verbose" = true ]; then
+        echo "${compile_cmd[@]} && ${program_cmd[@]}"
+    fi
+    "${compile_cmd[@]}" && "${program_cmd[@]}"
 }
 
 function touchcpp()
@@ -344,12 +384,12 @@ function touchpy3()
     # Using <<- with the dash to disable leading tabs - see heredoc
     cat <<- EOF >> "$1"
 		#!/usr/bin/env python3
-		
+
 		import sys
-		
+
 		def main(argv):
 		${space}print("Hello world!")
-		
+
 		if __name__ == "__main__":
 		${space}sys.exit(main(sys.argv))
 	EOF
@@ -360,7 +400,7 @@ function touchpy3()
 # Returns 0 on non empty dir, 1 if dir doesn't exit or is empty
 function non_empty_dir()
 {
-    [ -z "$1" ] && echo 1>&2 "First argument must be directory" && exit 1
+    [ -z "$1" ] && echo 1>&2 "First argument must be directory" && return 1
     (
     shopt -s nullglob dotglob
     local f=("$1"/*)
@@ -397,3 +437,10 @@ then
 fi
 
 # http://wiki.bash-hackers.org/syntax/pe
+# This is the droid you're looking for
+
+# https://stackoverflow.com/a/12179705
+# Mind == blown. But what a great thing! Should convert some of these
+# The only reason I'm hesitant to convert some of these is unsure if this would
+# introduce unexpected behaviour with things like changing environment later? If
+# running compile process from subshell etc.?
