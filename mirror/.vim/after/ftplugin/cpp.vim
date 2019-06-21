@@ -6,7 +6,7 @@ setlocal textwidth=80
 " silent! means we ignore errors in case they're not mapped
 silent! nunmap <Leader>s
 silent! nunmap <Leader>s<Space>
-nmap <Leader>s ostd::cout <<  << "\n";<ESC>bbbbhi
+nmap <buffer> <Leader>s ostd::cout <<  << "\n";<ESC>bbbbhi
 
 " See help cinoptions-values
 " Don't indent code in namespaces at all

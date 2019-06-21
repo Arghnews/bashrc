@@ -1,85 +1,6 @@
-set -o vi
-
-# linewrapping
-#export TERM="xterm-256color"
-export TERM="screen-256color"
-
-# increase history line limit and file size limit
-shopt -s histappend
-export HISTFILESIZE=5000000
-export HISTSIZE=250000
-
-# check the window size after each command and, if necessary,
-# update the values of LINES and COLUMNS.
-shopt -s checkwinsize
-
-#export PS1="\s->\W$ "
-
-#export PS1="\h@\W-> \[$(tput sgr0)\]"
-
-# ezprompt.net for PS1 creation
-# https://stackoverflow.com/a/3058390/8594193
-LIGHT_RED="\[\033[1;31m\]"
-RESTORE="\[\033[0m\]" #0m restores to the terminal's default colour
-
-# Run every time command is hit
-# Remove 148 - code 128 + signal SIGTSTP - every time hit control-z
-# remove exit code after 2nd press
-PROMPT_COMMAND='RET="$?"; ERR_MSG=""; if [ $RET -ne 0 ] && [ $RET -ne 148 ]; then ERR_MSG=" $RET "; fi'
-export PS1="\[\e[36m\]\h\[\e[m\]\[\e[32m\]\$(parse_git_branch)\\[\e[m\]\[\e[31m\]\W\[\e[m\]$LIGHT_RED\$ERR_MSG${RESTORE}$ "
-
-alias grep="grep --color=auto"
-alias ls="ls --color=auto"
-
-alias pgrep="pgrep --list-full"
-
-# no displaying hidden files when pressing tab
-bind "set match-hidden-files off"
-
-#complete -o default -W "$(cmd list-of-tabs)" cmd
-alias json="python -mjson.tool"
-
-export SHELL=/bin/bash
-
-eval $(dircolors -b "$HOME"/.dircolors)
-
-# now git commits look soo pretty
-# Set editor to nvim else vim else vi
-editor=vi
-command -v vim &>/dev/null && editor=vim
-command -v nvim &>/dev/null && editor=nvim
-export VISUAL="$editor"
-export EDITOR="$editor"
-
-alias nv=nvim
-
-# disables default ctrl + S sending XOF pause
-# allows use of it while reverse searching
-# condition (bashism) checks for interactive session
-# else get loads of stty ioctl errors
-[[ $- == *i* ]] && stty -ixon
-
-alias st="git status"
-
-# trying for now, more powerful pattern matching
-# eg ls !(dont_see_me*)
-shopt -s extglob
-
-alias make="make -j $(nproc)"
-
-PATH=$PATH:$HOME/.bin
-
-# prettier git log using git lg
-git config --global alias.lg "log --color --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr)' --abbrev-commit"
-
 function da()
 {
     date "+%Y%m%d"
-}
-
-function m()
-{
-    make && ./program
 }
 
 function parse_git_branch
@@ -90,6 +11,11 @@ function parse_git_branch
     else
         echo "("${ref#refs/heads/}")"
     fi
+}
+
+function command_exists()
+{
+    command -v "$1" &>/dev/null
 }
 
 function echo_err()
@@ -103,6 +29,20 @@ function contains()
     case "$1" in *"$2"*) return 0;; esac
     return 1
 }
+
+# Appends string to PATH if not present in PATH already
+function append_to_path()
+{
+    for arg in "$@"
+    do
+        if ! contains "$PATH" "$arg"
+        then
+            export PATH="$PATH:$arg"
+        fi
+    done
+}
+
+append_to_path "$HOME/.bin" "$HOME/.local/bin"
 
 function touchy()
 {
@@ -124,16 +64,14 @@ function touchy()
 # See all tracked files on current branch
 function gitls()
 {
-    local b=$(git branch | grep '*')
+    local b="$(git branch | grep '*')"
     # Remove prefix
-    b=${b#* }
+    b="${b#* }"
     git ls-tree -r "$b" --name-only
 }
 
 function swap()
 {
-    # TODO: breaks if ROOT ISSEUES
-    # CURRENTLY THIS BREAKS IF BOTH FILED ARE OWNED BY ROOT and you're not root
 	# Swaps either two files or directories
     if { ! [[ -f "$1" && -f "$2" ]] && ! [[ -d "$1" && -d "$2" ]]; } \
 		|| [[ "$1" == "$2" ]] ; then
@@ -159,25 +97,30 @@ function ccc()
     # Look into header only boost? Or shared (but then still need args I think)
     # ccc -O3 t.cpp -L/usr/local/lib -lboost_timer -lboost_chrono -Wl,-rpath=/usr/local/lib --
 
-    local compiler executable_name verbose=false
+    local compiler executable_name verbose=false compiler_search
     declare -a user_compiler_args program_args filenames \
         compiler_default_args_to_add
 
     declare -A compiler_arg_defaults
-    compiler_arg_defaults["-O.*"]="-O2"
+    # compiler_arg_defaults["-O.*"]="-O2"
     compiler_arg_defaults["-march=.*"]="-march=native"
     compiler_arg_defaults["-std=.*"]="-std=c++17"
 
 
     # Heredoc MUST be indented by actual tabs
+    # NOTE: when stealing this - read exits non-zero when it reaches EOF
+    # This will cause scripts with set -e (Exit immediately if a command exits
+    # with a non-zero status.) to fail on this
+    # To fix this append "|| :" - this will gobble all errors though
+    # Furthermore note that we currently set -o pipefail meaning appending "| :"
+    # will still fail as the exit status of the read (1) will be the final exit
+    # status of the command
     read -r -d '' help_string <<- EOF
 	--                  If "--" is present, args before it are passed to the
 	                        compiler and those after to the program
 	--ccc-verbose       Print additional info (eg. compile line)
-	--ccc-gcc
-	--ccc-g++           (Not implemented yet) Use g++
-	--ccc-clang
-	--ccc-clang++       (Not implemented yet) Use clang++
+	--ccc-clang++       Use clang++ - may append ie. --ccc-clang++-9.0
+	--ccc-g++           Use g++ - may append ie. --ccc-g++-8
 	--help              Print this help
 	EOF
     # If called with only 1 argument and it matches a variant of "--help", print
@@ -202,6 +145,12 @@ function ccc()
                                     )
                 program_args=()
                 ;;
+            --ccc-g++*)
+                compiler_search="${arg#--ccc-}"
+                ;;
+            --ccc-clang++*)
+                compiler_search="${arg#--ccc-}"
+                ;;
             --ccc-verbose)
                 verbose=true
                 ;;
@@ -211,21 +160,35 @@ function ccc()
         esac
     done
 
-
     # Find compiler
+    # This is to find compilers in PATH called things like g++-8 or
+    # /usr/bin/clang++-6.0
+    # if [ -z "$compiler" ] && [ -n "$compiler_search" ]
+    # then
+    #     # Find clang if in PATH. This should deal with spaces, newlines and
+    #     # globs (they will not be expanded) in PATH and not change dotglob or
+    #     # IFS as it's run in a subshell.
+    #     compiler="$(
+    #         set -f
+    #         IFS=: path_arr=($PATH)
+    #         find "${path_arr[@]}" -maxdepth 1 \( -type f -o -type l \) \
+    #             \( -name "$compiler_search*" \) \
+    #             2> >(grep -v \
+    #             -e "Permission denied" -e "No such file or directory" >&2) \
+    #             | sort -uV | tail -n 1)"
+    # fi
+
+    if [ -z "$compiler" ] && [ -n "$compiler_search" ]
+    then
+        compiler="$(which "$compiler_search")"
+        if [ $? -ne 0 ]
+        then
+            echo >&2 "Could not find $compiler_search in PATH"
+        fi
+    fi
     if [ -z "$compiler" ]
     then
-        # Find clang if in PATH. This should deal with spaces, newlines and
-        # globs (they will not be expanded) in PATH and not change dotglob or
-        # IFS as it's run in a subshell.
-        compiler="$(
-            set -f
-            IFS=: path_arr=($PATH)
-            find "${path_arr[@]}" -maxdepth 1 \( -type f -o -type l \) \
-                \( -name "clang++*" \) \
-                2> >(grep -v \
-                    -e "Permission denied" -e "No such file or directory" >&2) \
-                | sort -uV | tail -n 1)"
+        compiler="$(which clang++)"
     fi
     if [ -z "$compiler" ]
     then
@@ -236,7 +199,6 @@ function ccc()
     then
         echo_err "Could not find clang++ or g++ compiler in \$PATH" && return 1
     fi
-
 
     # Extract and remove filenames mutating compiler args (or user args if not
     # provided); find executable name
@@ -303,6 +265,8 @@ function ccc()
     done
 
 
+    # TODO: change the -l stuff to be appended at end ie. the filesystem one -
+    # to be clear must be after objects (this shit again)
     # Compiler flags that are always added
     declare -a compiler_flags=(
                     "-g"
@@ -323,12 +287,13 @@ function ccc()
 
 
     # Actual cmds
+    # Putting compiler flags at end for now so options like -lstdc++fs will work
     declare -a compile_cmd=(
                     "${compiler}"
-                    "${compiler_flags[@]}"
                     "${compiler_default_args_to_add[@]}"
                     "${user_compiler_args[@]}"
                     "${filenames[@]}"
+                    "${compiler_flags[@]}"
                     )
 
     if ! contains "$executable_name" "/"
@@ -425,9 +390,115 @@ function vimrc()
     unset plugs
 }
 
+function latest_download()
+{
+    ls -rt ~/Downloads/ | tail -n 1
+}
+
+# http://wiki.bash-hackers.org/syntax/pe
+# This is the droid you're looking for
+function droid()
+{
+    echo "http://wiki.bash-hackers.org/syntax/pe"
+}
+
+function set_mouse_keyboard_sens()
+{
+    # Sets mouse sens
+    # Regex matching mouse name to search for in output of xinput list
+    # Possible todo is integrate with udev event thingys for automatic
+    # replugging
+    local mice_name_regex="USB Mouse|Logitech G Pro Wireless Gaming Mouse|Logitech USB Receiver Mouse"
+    local mouse_id="$(xinput list | grep "slave [ ]*pointer" | \
+        sed -n -E "s/^.*($mice_name_regex) [[:space:]]*id=([0-9][0-9]*).*$/\2/p")"
+    if [ -n "$mouse_id" ]
+    then
+        xinput --set-prop "$mouse_id" "libinput Accel Speed" -0.9
+        xinput --set-prop "$mouse_id" "Coordinate Transformation Matrix" 1.8 0 0 0 1.8 0 0 0 2
+    fi
+
+    # Set keyboard delay and then repeat rate in milliseconds.
+    # Set in i3 config
+    xset r rate 220 40
+    # echo "Setting mouse and keyboard sens"
+}
+
+set -o vi
+
+# linewrapping
+#export TERM="xterm-256color"
+export TERM="screen-256color"
+
+# increase history line limit and file size limit
+shopt -s histappend
+export HISTFILESIZE=5000000
+export HISTSIZE=250000
+
+# check the window size after each command and, if necessary,
+# update the values of LINES and COLUMNS.
+shopt -s checkwinsize
+
+#export PS1="\s->\W$ "
+
+#export PS1="\h@\W-> \[$(tput sgr0)\]"
+
+# ezprompt.net for PS1 creation
+# https://stackoverflow.com/a/3058390/8594193
+LIGHT_RED="\[\033[1;31m\]"
+RESTORE="\[\033[0m\]" #0m restores to the terminal's default colour
+
+# Run every time command is hit
+# Remove 148 - code 128 + signal SIGTSTP - every time hit control-z
+# remove exit code after 2nd press
+PROMPT_COMMAND='RET="$?"; ERR_MSG=""; if [ $RET -ne 0 ] && [ $RET -ne 148 ]; then ERR_MSG=" $RET "; fi'
+export PS1="\[\e[36m\]\h\[\e[m\]\[\e[32m\]\$(parse_git_branch)\\[\e[m\]\[\e[31m\]\W\[\e[m\]$LIGHT_RED\$ERR_MSG${RESTORE}$ "
+
+alias grep="grep --color=auto"
+alias ls="ls --color=auto"
+
+alias pgrep="pgrep --list-full"
+
+alias ag="ag --ignore tags"
+
+# no displaying hidden files when pressing tab
+bind "set match-hidden-files off"
+
+#complete -o default -W "$(cmd list-of-tabs)" cmd
+alias json="python -mjson.tool"
+
+export SHELL=/bin/bash
+
+[ -f "$HOME/.dircolors" ] && eval "$(dircolors -b $HOME/.dircolors)"
+
+# now git commits look soo pretty
+# Set editor to nvim else vim else vi
+editor=vi
+command_exists vim && editor=vim
+command_exists nvim && editor=nvim
+export VISUAL="$editor"
+export EDITOR="$editor"
+alias nv="$EDITOR"
+
+# disables default ctrl + S sending XOF pause
+# allows use of it while reverse searching
+# condition (bashism) checks for interactive session
+# else get loads of stty ioctl errors
+[[ $- == *i* ]] && stty -ixon
+
+alias st="git status"
+
+# trying for now, more powerful pattern matching
+# eg ls !(dont_see_me*)
+shopt -s extglob
+
+alias make="make -j $(nproc)"
+
+# prettier git log using git lg
+git config --global alias.lg "log --color --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr)' --abbrev-commit"
+
 [ -f ~/.fzf.bash ] && source ~/.fzf.bash
 
-if [ "command -v fd 1>/dev/null 2>&1" ]
+if command_exists fd
 then
     #let $FZF_DEFAULT_COMMAND = 'ag --hidden --ignore .git -l -g ""'
     excludes="-E *.git -E *.tmp -E *.so -E *.swp -E *.o -E *.obj -E *.pyc "
@@ -436,11 +507,76 @@ then
     export FZF_CTRL_T_COMMAND="$FZF_DEFAULT_COMMAND"
 fi
 
-# http://wiki.bash-hackers.org/syntax/pe
-# This is the droid you're looking for
+
+# https://github.com/junegunn/fzf/wiki/Examples#command-history
+# re-wrote the script above
+bind '"\C-r": "\C-x1\e^\er"'
+bind -x '"\C-x1": __fzf_history';
+
+# This allows in line replacements using Control-R
+# Reminder
+# Control-S toggles sorting
+# Can use Tab and Shift Tab for multi select
+# Few issues
+# Sometimes we come out of this and press ESC to get into normal mode on cmd
+# line and it refuses
+# Also currently adds space that means if you run a cmd multiple times it keeps
+# that on - could strip trailing whitespace, hmm
+__fzf_history ()
+{
+    # __ehc "$(HISTTIMEFORMAT= history | \
+    #     fzf +s --tac --tiebreak=index -m --toggle-sort=ctrl-r | \
+    #     perl -ne 'm/^\s*([0-9]+)/ and print "!$1"')"
+    __ehc "$(HISTTIMEFORMAT= history | \
+        fzf --tac --tiebreak=index -m --toggle-sort=ctrl-r | \
+        sed "s/^[[:space:]]*[0-9][0-9]*[[:space:]]\{2\}//")"
+}
+
+__ehc()
+{
+if
+        [[ -n "$1" ]]
+then
+        bind '"\er": redraw-current-line'
+        bind '"\e^": magic-space'
+        READLINE_LINE=${READLINE_LINE:+${READLINE_LINE:0:READLINE_POINT}}${1}${READLINE_LINE:+${READLINE_LINE:READLINE_POINT}}
+        READLINE_POINT=$(( READLINE_POINT + ${#1} ))
+else
+        bind '"\er":'
+        bind '"\e^":'
+fi
+}
+
 
 # https://stackoverflow.com/a/12179705
 # Mind == blown. But what a great thing! Should convert some of these
 # The only reason I'm hesitant to convert some of these is unsure if this would
 # introduce unexpected behaviour with things like changing environment later? If
 # running compile process from subshell etc.?
+
+# I don't remember putting this line here. Think it was inserted by coc.nvim on
+# install as it uses yarn as a package manager.
+
+append_to_path "$HOME/.yarn/bin:$HOME/.config/yarn/global/node_modules/.bin"
+
+# If interactive shell and login shell
+# https://unix.stackexchange.com/a/50667
+# if [[ $- == *i* ]] && shopt -q login_shell
+# then
+[[ $- == *i* ]] && set_mouse_keyboard_sens
+# fi
+
+if command_exists lscpu
+then
+    export CMAKE_BUILD_PARALLEL_LEVEL="$(lscpu -p=CPU | grep -c -v "^#")"
+fi
+
+# alias history to smart uniquified version if exists
+# How the fook have I written this much bash and not known this about tilde
+# expansion (or lack) in double quotes?
+# https://unix.stackexchange.com/a/151865/358344
+# ~/".local/bin/history.py" # <- Needs to look like this
+if [ -f "$HOME/.local/bin/history.py" ] && command_exists python3
+then
+    alias history="HISTTIMEFORMAT= history | $HOME/.local/bin/history.py"
+fi
