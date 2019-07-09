@@ -4,6 +4,7 @@ set -e -o pipefail
 
 # TODO: bin the items file, just mirror the source directory, use find etc. to
 # get it all into array
+# set -x
 
 function error()
 {
@@ -14,6 +15,8 @@ function error()
 
 function echo_e()
 {
+    # This function is highly limited in what it can do, feels brittle really,
+    # according to a bash FAQ page article 50
     [ -z ${dry_run+x} ] && error "Dry run var unset"
     if [ "$dry_run" = true ]; then echo "$@"
     else echo "$@" && "$@"; fi
@@ -73,19 +76,25 @@ function main()
 
     # Heredoc MUST be indented by actual tabs
     read -r -d '' help_string <<- EOF || :
+	TL;DR:
+	# See what would happen
+	# ./mirror.sh -s mirror -d ~ -i mirror.txt -n
+	# Make new links
+	# ./mirror.sh -s mirror -d ~ -i mirror.txt
+
 	This script is designed for creation and updating of various config symlinks
 	from one central git repo (the source directory, --src) to respective
 	dotfiles such as ".vimrc".
 
 	For example running
-    ./mirror.sh --src mirror --dst /home/me -i <(echo .vim/plugged)
+	./mirror.sh --src mirror --dst /home/me -i <(echo .vim/plugged)
 	creates a symlink at /home/me/.vim/plugged to mirror/.vim/plugged
 
 	If a symlink already exists that points to the correct location, nothing
 	happens.
 
 	Otherwise if a symlink, file or directory exist at the location they will
-	be renamed (backed up) and the correct symlink created.
+	be renamed (backed up) with an extension and the correct symlink created.
 
 	-n, --dry-run           Just print what would be done
 	-s, --src               Directory tree from which to mirror (source)

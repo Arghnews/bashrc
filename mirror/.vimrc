@@ -16,11 +16,11 @@ if empty(glob('~/.vim/autoload/plug.vim'))
 call plug#begin()
 
 Plug 'tpope/vim-sensible' " Sensible defaults
-Plug 'tomasr/molokai' " Credit to Hugh Harrington for recommending
+Plug 'fatih/molokai' " Credit to Hugh Harrington for recommending
+Plug 'jacoborus/tender'
 " Install fzf to ~ if not there
 Plug 'junegunn/fzf', { 'dir': '~/.fzf', 'do': './install --all' }
 Plug 'junegunn/fzf.vim' " fzf vim bindings
-Plug 'fatih/molokai' " Nicer colour scheme
 Plug 'octol/vim-cpp-enhanced-highlight' " C++ syntax highlighting
 Plug 'ntpeters/vim-better-whitespace' " Trailing whitespace stripper/highlighter
 Plug 'tpope/vim-commentary' " Commenting
@@ -82,10 +82,11 @@ nnoremap <c-n> :NERDTreeToggle<CR>
 
 " With autoread to reload window
 au FocusGained,BufEnter * :checktime
-colorscheme molokai
-"let g:molokai_original = 1
-"let g:rehash256 = 1
 set background=dark
+colorscheme molokai
+" colorscheme tender
+" let g:molokai_original = 1
+"let g:rehash256 = 1
 " Must be after colorscheme - make highlighted text white
 " hi Visual term=reverse cterm=reverse guibg=White
 hi Visual term=reverse cterm=reverse guibg=Grey

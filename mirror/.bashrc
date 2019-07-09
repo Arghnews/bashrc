@@ -1,3 +1,5 @@
+# TODO: split this into multiple files as it's becoming far too big for one
+
 function da()
 {
     date "+%Y%m%d"
@@ -96,15 +98,19 @@ function ccc()
     # lib) then use time - get linker issues, urgh
     # Look into header only boost? Or shared (but then still need args I think)
     # ccc -O3 t.cpp -L/usr/local/lib -lboost_timer -lboost_chrono -Wl,-rpath=/usr/local/lib --
+    # Hmm.. http://mywiki.wooledge.org/BashFAQ/050
 
     local compiler executable_name verbose=false compiler_search
     declare -a user_compiler_args program_args filenames \
         compiler_default_args_to_add
+    # NOTE: compiler_arg_defaults are added using word splitting ie. "-o a.out"
+    # will be added to the compiler arguments as 2 arguments: "-o" and "a.out"
 
     declare -A compiler_arg_defaults
+    # Regex matched to arguments
     # compiler_arg_defaults["-O.*"]="-O2"
     compiler_arg_defaults["-march=.*"]="-march=native"
-    compiler_arg_defaults["-std=.*"]="-std=c++17"
+    compiler_arg_defaults["--?std=.*"]="-std=c++17"
 
 
     # Heredoc MUST be indented by actual tabs
@@ -139,10 +145,7 @@ function ccc()
     do
         case "$arg" in
             --)
-                user_compiler_args=(
-                                    "${user_compiler_args[@]}"
-                                    "${program_args[@]}"
-                                    )
+                user_compiler_args=("${program_args[@]}")
                 program_args=()
                 ;;
             --ccc-g++*)
@@ -155,8 +158,13 @@ function ccc()
                 verbose=true
                 ;;
             --help)
+                echo "$help_string"
+                return 0
                 ;;
-            *) program_args+=("$arg");;
+            *)
+                program_args+=("$arg")
+                # echo "Adding program arg: [$arg]"
+                ;;
         esac
     done
 
@@ -240,6 +248,9 @@ function ccc()
     done
 
     # Add compiler output executable argument if not present
+    # This line was -o $executable_name which caused much pain
+    # Actually compilers accept -oname but we'll use "-o" "name" as two
+    # arguments passed in order because it is less "astonishing" to me
     compiler_arg_defaults["-o"]="-o $executable_name"
 
 
@@ -249,18 +260,21 @@ function ccc()
         local add_default=true
         local regex="^${default}$"
         declare -i i
+        # echo "Checking default: $default with regex $regex"
         for ((i = 0; i < ${#user_compiler_args[@]}; ++i))
         do
             # echo "Compiler arg ${user_compiler_args[$i]}"
             if [[ "${user_compiler_args[$i]}" =~ $regex ]]
             then
+                # echo "Found replacement for $default, not adding it"
                 add_default=false
                 break
             fi
         done
         if [ "$add_default" = true ]
         then
-            compiler_default_args_to_add+=("${compiler_arg_defaults[$default]}")
+            # NOTE: this is deliberately unquoted
+            compiler_default_args_to_add+=(${compiler_arg_defaults[$default]})
         fi
     done
 
@@ -288,28 +302,46 @@ function ccc()
 
     # Actual cmds
     # Putting compiler flags at end for now so options like -lstdc++fs will work
-    declare -a compile_cmd=(
-                    "${compiler}"
+    # Order matters: https://stackoverflow.com/a/409470/8594193
+    declare -a compile_args=(
+                    "${filenames[@]}"
                     "${compiler_default_args_to_add[@]}"
                     "${user_compiler_args[@]}"
-                    "${filenames[@]}"
                     "${compiler_flags[@]}"
                     )
+
+    # echo "compiler [${compiler}]"
+    # echo "compiler_default_args_to_add [${compiler_default_args_to_add[@]}]"
+    # echo "user_compiler_args [${user_compiler_args[@]}]"
+    # echo "filenames [${filenames[@]}]"
+    # echo "compiler_flags [${compiler_flags[@]}]"
 
     if ! contains "$executable_name" "/"
     then
         executable_name="./$executable_name"
     fi
-    declare -a program_cmd=(
-                    "$executable_name"
-                    "${program_args[@]}"
-                    )
+
+    # echo "exec name: [$executable_name]"
+    # echo "compile args: [${compile_args[@]}]"
+    # echo "program args: [${program_args[@]}]"
+    # echo "program args len: ${#program_args[@]}"
 
     # echo "${compile_cmd[@]}" && ${program_cmd[@]}
+    # for item in "${compile_args[@]}"
+    # do
+    #     echo "compiler arg: [$item]"
+    # done
+    # for item in "${program_args[@]}"
+    # do
+    #     echo "prog arg: [$item]"
+    # done
+    # compiler="/home/justin/cpp/darktrace/args"
+    # echo "compiler [$compiler]"
+    # echo "compile_args [${compile_args[@]}]"
     if [ "$verbose" = true ]; then
-        echo "${compile_cmd[@]} && ${program_cmd[@]}"
+        echo "$compiler" "${compile_args[@]} && $executable_name" "${program_args[@]}"
     fi
-    "${compile_cmd[@]}" && "${program_cmd[@]}"
+    "$compiler" "${compile_args[@]}" && "$executable_name" "${program_args[@]}"
 }
 
 function touchcpp()
@@ -392,7 +424,8 @@ function vimrc()
 
 function latest_download()
 {
-    ls -rt ~/Downloads/ | tail -n 1
+    find ~/Downloads/ -maxdepth 1 -type f -printf "%T@ %p\n" | \
+        sort -rn -k1 | head -n 1 | sed -E "s/^[0-9]+\.[0-9]+ //"
 }
 
 # http://wiki.bash-hackers.org/syntax/pe
@@ -422,6 +455,38 @@ function set_mouse_keyboard_sens()
     xset r rate 220 40
     # echo "Setting mouse and keyboard sens"
 }
+
+
+# https://unix.stackexchange.com/a/391698/358344
+# Inserts text into prompt! Pretty neat
+function insert_with_delay()
+{
+    perl -le 'require "sys/ioctl.ph";
+              $delay = shift @ARGV;
+              unless(fork) {
+                select undef, undef, undef, $delay;
+                ioctl(STDIN, &TIOCSTI, $_) for split "", join " ", @ARGV;
+              }' -- "$@";
+}
+
+numb_cpus="$(grep -c ^processor /proc/cpuinfo)"
+
+function build()
+(
+    cd build && cmake .. && cmake --build . --parallel "$numb_cpus"
+    if [ $? -eq 0 ]
+    then
+        cd ..
+        # Find most recently modified executable file
+        executable="$(find build -maxdepth 2 -type f -executable -printf \
+            "%T@ %p\n" | sort -rn -k1 | head -n 1 | \
+            sed -E "s/^[0-9]+\.[0-9]+ //")"
+        insert_with_delay 0.1 "$executable"
+    fi
+)
+
+alias m="build"
+
 
 set -o vi
 
@@ -490,8 +555,6 @@ alias st="git status"
 # trying for now, more powerful pattern matching
 # eg ls !(dont_see_me*)
 shopt -s extglob
-
-alias make="make -j $(nproc)"
 
 # prettier git log using git lg
 git config --global alias.lg "log --color --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr)' --abbrev-commit"
@@ -566,9 +629,10 @@ append_to_path "$HOME/.yarn/bin:$HOME/.config/yarn/global/node_modules/.bin"
 [[ $- == *i* ]] && set_mouse_keyboard_sens
 # fi
 
+alias make="make -j $numb_cpus"
 if command_exists lscpu
 then
-    export CMAKE_BUILD_PARALLEL_LEVEL="$(lscpu -p=CPU | grep -c -v "^#")"
+    export CMAKE_BUILD_PARALLEL_LEVEL="$numb_cpus"
 fi
 
 # alias history to smart uniquified version if exists
@@ -576,7 +640,20 @@ fi
 # expansion (or lack) in double quotes?
 # https://unix.stackexchange.com/a/151865/358344
 # ~/".local/bin/history.py" # <- Needs to look like this
-if [ -f "$HOME/.local/bin/history.py" ] && command_exists python3
-then
-    alias history="HISTTIMEFORMAT= history | $HOME/.local/bin/history.py"
-fi
+function history()
+{
+    if [ "$#" -eq 0 ] && [ -f "$HOME/.local/bin/history.py" ] && \
+        command_exists python3 && [ -z "$HISTTIMEFORMAT" ]
+    then
+        HISTTIMEFORMAT= builtin history | $HOME/.local/bin/history.py
+    else
+        builtin history "$@"
+    fi
+}
+# if [ -f "$HOME/.local/bin/history.py" ] && command_exists python3
+# then
+#     alias history="HISTTIMEFORMAT= history | $HOME/.local/bin/history.py"
+#     alias history="HISTTIMEFORMAT= history | $HOME/.local/bin/history.py"
+# fi
+
+mac="28:C6:3F:15:8C:3F"

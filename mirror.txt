@@ -4,3 +4,5 @@
 .config/i3/config
 .local/bin/history.py
 .config/compton.conf
+.inputrc
+.dircolors

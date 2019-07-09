@@ -4,6 +4,16 @@ import operator
 import re
 import sys
 
+import signal
+
+# For now at least - think this should be fine
+def handle_broken_pipe(signal_number, stack_frame):
+    # Something like history | head will not get this exit status anyway unless
+    # set -o pipefail is on
+    sys.exit(0)
+
+signal.signal(signal.SIGPIPE, handle_broken_pipe)
+
 def gen(line, stdin):
     yield line
     yield from stdin

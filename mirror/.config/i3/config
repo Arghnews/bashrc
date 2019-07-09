@@ -102,6 +102,9 @@ bindsym $mod+a focus parent
 
 # focus the child container
 #bindsym $mod+d focus child
+bindsym $mod+c focus child
+
+# for_window [title="test"] no_focus
 
 # Define names for default workspaces for which we configure key bindings later on.
 # We use variables to avoid repeating the names in multiple places.
@@ -199,24 +202,26 @@ workspace_auto_back_and_forth yes
 # Could be useful to look at
 # https://i3wm.org/docs/userguide.html#_sticky_floating_windows
 
-# switch between the current and the previously focused one
+# Switch between the current and the previously focused one
 # Note that Alt is Mod1
-bindsym $mod+b workspace back_and_forth
-bindsym Mod1+Tab workspace next
-bindsym Mod1+Shift+Tab workspace prev
+bindsym Mod1+Tab workspace back_and_forth
+bindsym Mod1+Shift+Tab workspace next
+# bindsym $mod+b workspace next
+# bindsym Mod1+Tab workspace next
 
 # Press $mod+o followed by either f, t, Escape or Return to launch firefox,
 # thunderbird or return to the default mode, respectively.
-# set $mode_launcher Launcher mode
-# bindsym $mod+o mode "$mode_launcher"
+set $mode_launcher Launcher mode
+bindsym $mod+o mode "$mode_launcher"
 
-# mode "$mode_launcher" {
-#     bindsym f exec firefox
-#     bindsym t exec thunderbird
+mode "$mode_launcher" {
+    bindsym f exec firefox
+    bindsym g exec google-chrome
+    # bindsym t exec thunderbird
 
-#     bindsym Escape mode "default"
-#     bindsym Return mode "default"
-# }
+    bindsym Escape mode "default"
+    bindsym Return mode "default"
+}
 
 # Start chrome on workspace 2
 # bindsym $mod+p exec --no-startup-id i3-msg 'workspace 3; exec ; workspace 1'
@@ -224,3 +229,5 @@ bindsym Mod1+Shift+Tab workspace prev
 # Lock
 bindsym $mod+m exec i3lock -f -p default -i ~/screensavers/Ice-Mountains-Landscapes-Snow-Wallpaper-1920x1080.png
 
+# Fix screen tearing
+exec --no-startup-id compton --config ~/.config/compton.conf -b
