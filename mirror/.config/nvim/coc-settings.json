@@ -1,0 +1,41 @@
+{
+  // my variable
+  "suggest.triggerAfterInsertEnter": true,
+  "suggest.minTriggerInputLength": 1,
+  "suggest.acceptSuggestionOnCommitCharacter": false,
+  "suggest.timeout": 500,
+  // "suggest.preferCompleteThanJumpPlaceholder": true,
+  "suggest.autoTrigger": "always",
+  "diagnostic.checkCurrentLine": true,
+  "diagnostic.virtualText": true,
+  "suggest.enablePreview":true,
+
+  "languageserver": {
+    "clangd": {
+      "command": "clangd",
+      "args":
+      [
+		// "--all-scopes-completion",
+		"--clang-tidy",
+		"--color",
+		// "--completion-parse=always",
+		// // Could be detailed for all overloads"
+		"--completion-style=detailed",
+		// "--function-arg-placeholders",
+		"--header-insertion=iwyu",
+		// "--header-insertion-decorators",
+		"--limit-results=250",
+		// https://github.com/clangd/clangd/issues/98
+		"--suggest-missing-includes=false",
+		"--index",
+		// "--background-index",
+		// "--background-index-rebuild-period=1000",
+		// Dex index removed in latest clangd
+		// "--use-dex-index"
+      ],
+      "rootPatterns": ["compile_flags.txt", "compile_commands.json", ".vim/", ".git/", ".hg/"],
+      "filetypes": ["cpp", "arduino"]
+    }
+  }
+}
+

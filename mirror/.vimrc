@@ -38,7 +38,11 @@ Plug 'majutsushi/tagbar' " Sidebar for ctags based class overview
 Plug 'tpope/vim-surround' " Better quote handling
 
 " Or install latest release tag
-Plug 'neoclide/coc.nvim', {'tag': '*', 'do': './install.sh'}
+" Plug 'neoclide/coc.nvim', {'tag': '*', 'do': './install.sh'}
+" Plug 'neoclide/coc.nvim'
+" Plug 'neoclide/coc.nvim', {'branch': 'release'}
+" Plug 'neoclide/coc.nvim', {'tag': 'v0.0.72', 'do': './install.sh'}
+Plug 'neoclide/coc.nvim', {'tag': '*', 'branch': 'release'}
 
 " Plug 'Valloric/YouCompleteMe' " The monster
 " http://valloric.github.io/YouCompleteMe/#linux-64-bit
@@ -457,7 +461,7 @@ function! s:show_documentation()
 endfunction
 
 " Highlight symbol under cursor on CursorHold
-autocmd CursorHold * silent call CocActionAsync('highlight')
+" autocmd CursorHold * silent call CocActionAsync('highlight')
 
 " Remap for rename current word
 nmap <leader>rn <Plug>(coc-rename)

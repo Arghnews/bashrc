@@ -223,7 +223,7 @@ function ccc()
     for arg in "${args[@]}"
     do
         case "$arg" in
-            *.c|*.cpp|*.cxx) filenames+=("$arg");;
+            *.c|*.cpp|*.cxx|*.cc) filenames+=("$arg");;
             *) non_filenames+=("$arg");;
         esac
     done
@@ -297,6 +297,8 @@ function ccc()
                     "-Werror=shadow"
                     "-fverbose-asm"
                     "-lstdc++fs"
+                    "-Werror=return-type"
+                    "-Wuninitialized"
                     )
 
 
@@ -565,7 +567,7 @@ if command_exists fd
 then
     #let $FZF_DEFAULT_COMMAND = 'ag --hidden --ignore .git -l -g ""'
     excludes="-E *.git -E *.tmp -E *.so -E *.swp -E *.o -E *.obj -E *.pyc "
-    excludes+="-E *.vim -E *.d -E ~.* -E *.d -E tags"
+    excludes+="-E *.vim -E *.d -E ~.* -E *.d -E tags -E .clangd*"
     export FZF_DEFAULT_COMMAND="fd --type f --hidden --follow $excludes "
     export FZF_CTRL_T_COMMAND="$FZF_DEFAULT_COMMAND"
 fi
