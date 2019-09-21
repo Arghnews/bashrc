@@ -439,23 +439,30 @@ function droid()
 
 function set_mouse_keyboard_sens()
 {
+    # TODO: move these to udev scripts
     # Sets mouse sens
     # Regex matching mouse name to search for in output of xinput list
     # Possible todo is integrate with udev event thingys for automatic
     # replugging
-    local mice_name_regex="USB Mouse|Logitech G Pro Wireless Gaming Mouse|Logitech USB Receiver Mouse"
-    local mouse_id="$(xinput list | grep "slave [ ]*pointer" | \
-        sed -n -E "s/^.*($mice_name_regex) [[:space:]]*id=([0-9][0-9]*).*$/\2/p")"
-    if [ -n "$mouse_id" ]
+    if command_exists xinput
     then
-        xinput --set-prop "$mouse_id" "libinput Accel Speed" -0.9
-        xinput --set-prop "$mouse_id" "Coordinate Transformation Matrix" 1.8 0 0 0 1.8 0 0 0 2
+        local mice_name_regex="USB Mouse|Logitech G Pro Wireless Gaming Mouse|Logitech USB Receiver Mouse"
+        local mouse_id="$(xinput list | grep "slave [ ]*pointer" | \
+            sed -n -E "s/^.*($mice_name_regex) [[:space:]]*id=([0-9][0-9]*).*$/\2/p")"
+        if [ -n "$mouse_id" ]
+        then
+            xinput --set-prop "$mouse_id" "libinput Accel Speed" -0.9
+            xinput --set-prop "$mouse_id" "Coordinate Transformation Matrix" 1.8 0 0 0 1.8 0 0 0 2
+        fi
     fi
 
-    # Set keyboard delay and then repeat rate in milliseconds.
-    # Set in i3 config
-    xset r rate 220 40
-    # echo "Setting mouse and keyboard sens"
+    if command_exists xset
+    then
+        # Set keyboard delay and then repeat rate in milliseconds.
+        # Set in i3 config
+        xset r rate 220 40
+        # echo "Setting mouse and keyboard sens"
+    fi
 }
 
 
