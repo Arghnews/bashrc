@@ -217,6 +217,7 @@ bindsym $mod+o mode "$mode_launcher"
 mode "$mode_launcher" {
     bindsym f exec firefox
     bindsym g exec google-chrome
+    bindsym n exec nautilus
     # bindsym t exec thunderbird
 
     bindsym Escape mode "default"
@@ -227,7 +228,9 @@ mode "$mode_launcher" {
 # bindsym $mod+p exec --no-startup-id i3-msg 'workspace 3; exec ; workspace 1'
 
 # Lock
-bindsym $mod+m exec i3lock -f -p default -i ~/screensavers/Ice-Mountains-Landscapes-Snow-Wallpaper-1920x1080.png
+# Changed from mod+m as hit by accident
+# TODO: get better screensaver
+bindsym $mod+p exec i3lock -f -p default -i ~/screensavers/Ice-Mountains-Landscapes-Snow-Wallpaper-1920x1080.png
 
 # Fix screen tearing
 exec --no-startup-id compton --config ~/.config/compton.conf -b

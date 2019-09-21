@@ -473,22 +473,23 @@ function insert_with_delay()
 
 numb_cpus="$(grep -c ^processor /proc/cpuinfo)"
 
+# Note this is in parentheses not braces so is run in subshell
 function build()
 (
     cd build && cmake .. && cmake --build . --parallel "$numb_cpus"
-    if [ $? -eq 0 ]
-    then
-        cd ..
-        # Find most recently modified executable file
-        executable="$(find build -maxdepth 2 -type f -executable -printf \
-            "%T@ %p\n" | sort -rn -k1 | head -n 1 | \
-            sed -E "s/^[0-9]+\.[0-9]+ //")"
-        insert_with_delay 0.1 "$executable"
-    fi
 )
 
-alias m="build"
+function after_build_insert_executable_on_line()
+{
+    # Find most recently modified executable file
+    executable="$(find build -maxdepth 2 -type f -executable -printf \
+        "%T@ %p\n" | sort -rn -k1 | head -n 1 | \
+        sed -E "s/^[0-9]+\.[0-9]+ //")"
+    insert_with_delay 0.1 "$executable"
+}
 
+alias m="build && after_build_insert_executable_on_line"
+alias mm="build"
 
 set -o vi
 
@@ -500,6 +501,9 @@ export TERM="screen-256color"
 shopt -s histappend
 export HISTFILESIZE=5000000
 export HISTSIZE=250000
+# https://unix.stackexchange.com/a/49216/358344
+# Commands prepended with a space will not be saved in history
+export HISTCONTROL=ignorespace
 
 # check the window size after each command and, if necessary,
 # update the values of LINES and COLUMNS.
@@ -659,3 +663,8 @@ function history()
 # fi
 
 mac="28:C6:3F:15:8C:3F"
+alias bluetoothctl="sudo bluetoothctl"
+alias hcitool="sudo hcitool"
+alias btmgmt="sudo btmgmt"
+alias gatttool="sudo gatttool"
+alias wpa_cli="sudo wpa_cli"
