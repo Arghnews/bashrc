@@ -23,7 +23,8 @@ Plug 'junegunn/fzf', { 'dir': '~/.fzf', 'do': './install --all' }
 Plug 'junegunn/fzf.vim' " fzf vim bindings
 Plug 'octol/vim-cpp-enhanced-highlight' " C++ syntax highlighting
 Plug 'ntpeters/vim-better-whitespace' " Trailing whitespace stripper/highlighter
-Plug 'tpope/vim-commentary' " Commenting
+" Plug 'tpope/vim-commentary' " Commenting
+Plug 'scrooloose/nerdcommenter' " NERD Commenting
 Plug 'tpope/vim-unimpaired' " Awesome shortcuts
 
 Plug 'itchyny/vim-cursorword' " Highlights current word - on trial
@@ -43,6 +44,8 @@ Plug 'tpope/vim-surround' " Better quote handling
 " Plug 'neoclide/coc.nvim', {'branch': 'release'}
 " Plug 'neoclide/coc.nvim', {'tag': 'v0.0.72', 'do': './install.sh'}
 Plug 'neoclide/coc.nvim', {'tag': '*', 'branch': 'release'}
+
+Plug 'neovimhaskell/haskell-vim'
 
 " Plug 'Valloric/YouCompleteMe' " The monster
 " http://valloric.github.io/YouCompleteMe/#linux-64-bit
@@ -77,7 +80,7 @@ let g:cpp_concepts_highlight = 1
 
 " scrooloose/nerdtree
 nnoremap <c-n> :NERDTreeToggle<CR>
-"let NERDTreeToggle = "<s-k>"
+" let NERDTreeToggle = "<s-k>"
 
 " https://stackoverflow.com/a/15378816
 " As long as TERM is correctly set in .bashrc to xterm-256color or
@@ -240,7 +243,8 @@ nmap <Leader>g :GFiles<CR>
 nmap <Leader>b :Buffers<CR>
 nmap <Leader>h :History<CR>
 " Vim command history
-nmap <Leader>c :History:<CR>
+" nmap <Leader>c :History:<CR>
+nmap <Leader>C :History:<CR>
 nmap <Leader>w :Windows<CR>
 
 nmap <Leader>l :BLines<CR>
@@ -527,4 +531,12 @@ nnoremap <silent> <space>j  :<C-u>CocNext<CR>
 nnoremap <silent> <space>k  :<C-u>CocPrev<CR>
 " Resume latest coc list
 nnoremap <silent> <space>p  :<C-u>CocListResume<CR>
+
+" Add spaces after comment delimiters by default
+let g:NERDSpaceDelims = 1
+
+" https://stackoverflow.com/a/12423858/8594193
+" Stop annoying coc.nvim statusline requiring enter press on hovering over
+" error with cursor
+set shortmess+=T
 

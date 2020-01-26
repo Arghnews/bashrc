@@ -218,6 +218,7 @@ mode "$mode_launcher" {
     bindsym f exec firefox
     bindsym g exec google-chrome
     bindsym n exec nautilus
+    bindsym q exec qtcreator
     # bindsym t exec thunderbird
 
     bindsym Escape mode "default"

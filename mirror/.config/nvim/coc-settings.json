@@ -6,6 +6,7 @@
   "suggest.timeout": 500,
   // "suggest.preferCompleteThanJumpPlaceholder": true,
   "suggest.autoTrigger": "always",
+  // "suggest.autoTrigger": "never",
   "diagnostic.checkCurrentLine": true,
   "diagnostic.virtualText": true,
   "suggest.enablePreview":true,
@@ -16,7 +17,7 @@
       "args":
       [
 		// "--all-scopes-completion",
-		"--clang-tidy",
+		//"--clang-tidy",
 		"--color",
 		// "--completion-parse=always",
 		// // Could be detailed for all overloads"
@@ -36,6 +37,7 @@
       "rootPatterns": ["compile_flags.txt", "compile_commands.json", ".vim/", ".git/", ".hg/"],
       "filetypes": ["cpp", "arduino"]
     }
-  }
+  },
+  "coc.preferences.extensionUpdateCheck": "never"
 }
 

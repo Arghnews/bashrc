@@ -33,3 +33,5 @@ setlocal commentstring=#\ %s
 " restore 'cpo' and clean up buffer variable
 let &cpo = s:cpo_save
 unlet s:cpo_save
+
+call Tab(4, 0)

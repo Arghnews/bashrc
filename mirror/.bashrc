@@ -282,6 +282,8 @@ function ccc()
     # TODO: change the -l stuff to be appended at end ie. the filesystem one -
     # to be clear must be after objects (this shit again)
     # Compiler flags that are always added
+    # -Weffc++ - apparently can be overly sensitive. Should warn on
+    # uninitialised variables in constructors.
     declare -a compiler_flags=(
                     "-g"
                     "-Wall"
@@ -299,7 +301,13 @@ function ccc()
                     "-lstdc++fs"
                     "-Werror=return-type"
                     "-Wuninitialized"
+                    "-Weffc++"
+                    "-L/usr/local/lib"
+                    "-lfmt"
+                    "-pthread"
+                    "-fdiagnostics-color"
                     )
+    #-fsanitize=address,undefined
 
 
     # Actual cmds
@@ -337,7 +345,6 @@ function ccc()
     # do
     #     echo "prog arg: [$item]"
     # done
-    # compiler="/home/justin/cpp/darktrace/args"
     # echo "compiler [$compiler]"
     # echo "compile_args [${compile_args[@]}]"
     if [ "$verbose" = true ]; then
@@ -362,6 +369,7 @@ function touchcpp()
 		#include <vector>
 
 		//#include "prettyprint.hpp"
+		//#include <fmt/format.h>
 
 		using namespace std::literals;
 
@@ -477,26 +485,56 @@ function insert_with_delay()
                 ioctl(STDIN, &TIOCSTI, $_) for split "", join " ", @ARGV;
               }' -- "$@";
 }
+export -f insert_with_delay
 
 numb_cpus="$(grep -c ^processor /proc/cpuinfo)"
 
 # Note this is in parentheses not braces so is run in subshell
+# Note unsure if quoting and passing "$@" down through functions works as I
+# expect currently
 function build()
 (
-    cd build && cmake .. && cmake --build . --parallel "$numb_cpus"
+    cd build && cmake .. "$@" && cmake --build . --parallel "$numb_cpus"
+
+    # Can add --parallel n # To cmake
+
+    # rm -rf build && mkdir build
+    # cd build && cmake ..
+    # cmake --build build
+    # cmake --build build --target test
+    # # sudo cmake --build build --target install
+
+    # cmake -S . -B build
+    # cmake --install build
 )
 
 function after_build_insert_executable_on_line()
 {
-    # Find most recently modified executable file
+    # Find most recently modified executable file at the lowest depth
     executable="$(find build -maxdepth 2 -type f -executable -printf \
-        "%T@ %p\n" | sort -rn -k1 | head -n 1 | \
-        sed -E "s/^[0-9]+\.[0-9]+ //")"
-    insert_with_delay 0.1 "$executable"
+        "%d %T@ %p\n" | sort -r --key=1n,2n | head -n 1 | \
+        sed -E "s/^[0-9]+ +[0-9]+\.[0-9]+ //")"
+    insert_with_delay 0.16 "$executable"
+}
+export -f after_build_insert_executable_on_line
+
+function m()
+{
+    if [ -x ".m.sh" ]
+    then
+        ./.m.sh "$@"
+    else
+        build "$@" && after_build_insert_executable_on_line
+    fi
 }
 
-alias m="build && after_build_insert_executable_on_line"
-alias mm="build"
+function mm()
+{
+    build "$@"
+}
+
+# alias m=""
+# alias mm="build"
 
 set -o vi
 
@@ -506,8 +544,8 @@ export TERM="screen-256color"
 
 # increase history line limit and file size limit
 shopt -s histappend
-export HISTFILESIZE=5000000
-export HISTSIZE=250000
+export HISTFILESIZE=500000000
+export HISTSIZE=25000000
 # https://unix.stackexchange.com/a/49216/358344
 # Commands prepended with a space will not be saved in history
 export HISTCONTROL=ignorespace
@@ -675,3 +713,13 @@ alias hcitool="sudo hcitool"
 alias btmgmt="sudo btmgmt"
 alias gatttool="sudo gatttool"
 alias wpa_cli="sudo wpa_cli"
+
+# Asan doesn't work (presumably without resorting to discouraged -lasan flags)
+# with just -fsanitize=address because for whatever reason on my Ubuntu system
+# LD_PRELOAD is set to "libgtk3-nocsd.so.0" that seems to be related to this?
+# https://github.com/lutris/lutris/issues/905
+# https://packages.debian.org/stretch/libgtk3-nocsd0
+# Easy seems to be to just set LD_PRELOAD=
+export LD_PRELOAD=
+
+export PATH="$PATH:$HOME/Qt/Tools/QtCreator/bin"

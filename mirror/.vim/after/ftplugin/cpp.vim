@@ -9,10 +9,12 @@ silent! nunmap <Leader>s<Space>
 
 nmap <buffer> <Leader>v ostd::cout <<  << "\n";<ESC>bbbbhi
 nmap <buffer> <Leader>s ofmt::print("\n");<ESC>bbhi
+nmap <buffer> <Leader>S Ofmt::print("\n");<ESC>bbhi
 
 " See help cinoptions-values
 " Don't indent code in namespaces at all
-set cinoptions=N-s
+" h-0: don't indent line after public: or private: access specifier
+set cinoptions=N-s,h-0
 
 " Don't indent template functions if they are one lined.
 " Not perfect (but then parsing C++ (in vimscript) was always going to be
