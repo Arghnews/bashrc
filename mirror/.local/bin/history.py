@@ -3,6 +3,7 @@
 import operator
 import re
 import signal
+import string
 import sys
 
 # For now at least - think this should be fine
@@ -76,9 +77,21 @@ def main(argv):
             cmd = cmd.rstrip()
         cmd_to_index[cmd] = index
         prev_cmd = cmd
-    index_to_cmd = sorted([(index, cmd) for cmd, index in cmd_to_index.items()],
+
+
+    printable_chars = frozenset(string.printable)
+    index_to_cmd = sorted(
+            [(index, cmd) for cmd, index in cmd_to_index.items()
+                if all(c in printable_chars for c in cmd)],
             key = operator.itemgetter(0))
-    print("\n".join("  ".join((str(index), cmd)) for index, cmd in index_to_cmd))
+
+    # Padding to turn this     to    this
+    #                 $99999  ls     $ 99999  ls
+    #                 $100000  pwd   $100000  pwd
+    digits_width = len(str(entry_count))
+
+    print("\n".join("  ".join((str(index).rjust(digits_width), cmd))
+        for index, cmd in index_to_cmd))
 
 if __name__ == "__main__":
     sys.exit(main(sys.argv))
