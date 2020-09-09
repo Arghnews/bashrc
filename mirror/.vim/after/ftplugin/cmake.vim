@@ -4,6 +4,10 @@
 " Maintainer:  Keith Smiley <keithbsmiley@gmail.com>
 " Last Change: 2018 Aug 30
 
+" Note: ensure this is above the line that quits if already done for this
+" buffer
+call Tab(4, 0)
+
 " Only do this when not done yet for this buffer
 if exists("b:did_ftplugin")
   finish
@@ -20,9 +24,9 @@ let b:undo_ftplugin = "setl commentstring<"
 
 if exists('loaded_matchit')
   let b:match_words = '\<if\>:\<elseif\>\|\<else\>:\<endif\>'
-        \ . ',\<foreach\>\|\<while\>:\<break\>:\<endforeach\>\|\<endwhile\>'
-        \ . ',\<macro\>:\<endmacro\>'
-        \ . ',\<function\>:\<endfunction\>'
+	\ . ',\<foreach\>\|\<while\>:\<break\>:\<endforeach\>\|\<endwhile\>'
+	\ . ',\<macro\>:\<endmacro\>'
+	\ . ',\<function\>:\<endfunction\>'
   let b:match_ignorecase = 1
 
   let b:undo_ftplugin .= "| unlet b:match_words"
@@ -33,5 +37,3 @@ setlocal commentstring=#\ %s
 " restore 'cpo' and clean up buffer variable
 let &cpo = s:cpo_save
 unlet s:cpo_save
-
-call Tab(4, 0)

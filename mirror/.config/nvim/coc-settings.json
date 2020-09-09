@@ -3,7 +3,7 @@
   "suggest.triggerAfterInsertEnter": true,
   "suggest.minTriggerInputLength": 1,
   "suggest.acceptSuggestionOnCommitCharacter": false,
-  "suggest.timeout": 500,
+  "suggest.timeout": 750,
   // "suggest.preferCompleteThanJumpPlaceholder": true,
   "suggest.autoTrigger": "always",
   // "suggest.autoTrigger": "never",
@@ -13,12 +13,13 @@
 
   "languageserver": {
     "clangd": {
+      // "command": "/home/justin/temp/clangd/clang+llvm-9.0.1-powerpc64le-linux-ubuntu-16.04/bin/clangd",
       "command": "clangd",
       "args":
       [
 		// "--all-scopes-completion",
 		//"--clang-tidy",
-		"--color",
+		// "--color",
 		// "--completion-parse=always",
 		// // Could be detailed for all overloads"
 		"--completion-style=detailed",
@@ -27,8 +28,8 @@
 		// "--header-insertion-decorators",
 		"--limit-results=250",
 		// https://github.com/clangd/clangd/issues/98
-		"--suggest-missing-includes=false",
-		"--index",
+		// "--suggest-missing-includes=false",
+		// "--index",
 		// "--background-index",
 		// "--background-index-rebuild-period=1000",
 		// Dex index removed in latest clangd

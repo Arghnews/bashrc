@@ -46,6 +46,27 @@ function append_to_path()
 
 append_to_path "$HOME/.bin" "$HOME/.local/bin"
 
+function get_realpath
+{
+    if command_exists realpath
+    then
+        realpath "$@"
+    else
+        echo "$(cd "$(dirname "$1")"; pwd -P)/$(basename "$1")";
+    fi
+}
+
+function get_executable()
+{
+    # Find most recently modified executable file at the lowest depth
+    # $1 is directory passed to find
+    local executable="$(find "$1" -maxdepth 2 -type f \
+        -executable -printf \
+        "%d %T@ %p\n" | sort -r --key=1n,2n | head -n 1 | \
+        sed -E "s/^[0-9]+ +[0-9]+\.[0-9]+ //")"
+    echo "$executable"
+}
+
 function touchy()
 {
     [ -f "$1" ] && echo_err "File exists: $1" && return 1
@@ -91,8 +112,31 @@ function swap()
     return $exit_status
 }
 
+function needle_regex_in_haystack_array()
+{
+    # Returns 0 if "$1" contains "$2" else 1
+    # Pass array to function: https://askubuntu.com/a/995110
+    local needle_regex="$1"
+    shift
+    # for arg; without "in" implicitly loops over elements list, awesome
+    # See comments of https://stackoverflow.com/a/8574392/8594193
+    for arg
+    do
+        # Unsure if need quotes on first arg in regex match here
+        # The second arg is the regex, even if expanded from a variable, still
+        # must be unquoted
+        if [[ "$arg" =~ $needle_regex ]]; then
+            return 0
+        fi
+    done
+    return 1
+}
+export -f needle_regex_in_haystack_array
+
 function ccc()
 {
+    # ccc test.cpp -stdlib=libc++ --ccc-verbose -Wl,-rpath,/usr/local/lib --ccc-clang++ --
+    # Note to self about how to compile using libc++ rather than libstdc++
 
     # Urgh, installed boost myself on ubuntu 18.10 into /usr/local (include,
     # lib) then use time - get linker issues, urgh
@@ -100,9 +144,10 @@ function ccc()
     # ccc -O3 t.cpp -L/usr/local/lib -lboost_timer -lboost_chrono -Wl,-rpath=/usr/local/lib --
     # Hmm.. http://mywiki.wooledge.org/BashFAQ/050
 
-    local compiler executable_name verbose=false compiler_search
+    local compiler executable_name verbose=false compiler_search \
+        print_compile_flags_only=false
     declare -a user_compiler_args program_args filenames \
-        compiler_default_args_to_add
+        compiler_default_args_to_add compiler_args_to_remove
     # NOTE: compiler_arg_defaults are added using word splitting ie. "-o a.out"
     # will be added to the compiler arguments as 2 arguments: "-o" and "a.out"
 
@@ -122,11 +167,24 @@ function ccc()
     # will still fail as the exit status of the read (1) will be the final exit
     # status of the command
     read -r -d '' help_string <<- EOF
-	--                  If "--" is present, args before it are passed to the
+	--                  If argument "--" is present, args before it are passed to the
 	                        compiler and those after to the program
+	                        eg. ccc -std=c++17 -- program_arg1 program_arg2
+
 	--ccc-verbose       Print additional info (eg. compile line)
+
+	--ccc-compile-flags Print compile_flags.txt style options only
+	                        Note: Prepends "-xc++" so clangd parses files (notably .h headers) as c++ not c
+
 	--ccc-clang++       Use clang++ - may append ie. --ccc-clang++-9.0
 	--ccc-g++           Use g++ - may append ie. --ccc-g++-8
+
+	--ccc-no            Remove any compiler arguments matching this regex
+	                      eg. --ccc-no-std=c++17
+	                      eg. --ccc-no-fsanitize or "--ccc-no-fsanitize.*"
+	                        (Careful with would-be wildcards if unquoted)
+	                        which will both match -fsanitize=address,undefined
+
 	--help              Print this help
 	EOF
     # If called with only 1 argument and it matches a variant of "--help", print
@@ -140,33 +198,47 @@ function ccc()
     fi
 
 
-    # Fill compiler and user args from command line
+    # Fill user and compiler args from command line
+    local end_of_user_compiler_args=false
     for arg in "$@"
     do
-        case "$arg" in
-            --)
-                user_compiler_args=("${program_args[@]}")
-                program_args=()
-                ;;
-            --ccc-g++*)
-                compiler_search="${arg#--ccc-}"
-                ;;
-            --ccc-clang++*)
-                compiler_search="${arg#--ccc-}"
-                ;;
-            --ccc-verbose)
-                verbose=true
-                ;;
-            --help)
-                echo "$help_string"
-                return 0
-                ;;
-            *)
-                program_args+=("$arg")
-                # echo "Adding program arg: [$arg]"
-                ;;
-        esac
+        if [ "$end_of_user_compiler_args" = true ]
+        then
+            program_args+=("$arg")
+        else
+            case "$arg" in
+                --)
+                    user_compiler_args=("${program_args[@]}")
+                    program_args=()
+                    end_of_user_compiler_args=true
+                    ;;
+                --ccc-g++*)
+                    compiler_search="${arg#--ccc-}"
+                    ;;
+                --ccc-clang++*)
+                    compiler_search="${arg#--ccc-}"
+                    ;;
+                --ccc-compile-flags)
+                    print_compile_flags_only=true
+                    ;;
+                --ccc-verbose)
+                    verbose=true
+                    ;;
+                --ccc-no*)
+                    compiler_args_to_remove+=("${arg#--ccc-no}")
+                    ;;
+                --help)
+                    echo "$help_string"
+                    return 0
+                    ;;
+                *)
+                    program_args+=("$arg")
+                    # echo "Adding program arg: [$arg]"
+                    ;;
+            esac
+        fi
     done
+
 
     # Find compiler
     # This is to find compilers in PATH called things like g++-8 or
@@ -191,7 +263,7 @@ function ccc()
         compiler="$(which "$compiler_search")"
         if [ $? -ne 0 ]
         then
-            echo >&2 "Could not find $compiler_search in PATH"
+            echo >&2 "Could not find requested $compiler_search in PATH" && return 1
         fi
     fi
     if [ -z "$compiler" ]
@@ -203,7 +275,7 @@ function ccc()
         compiler="$(which g++)"
     fi
 
-    if [ -z "$compiler" ]
+    if [ "$print_compile_flags_only" = false ] && [ -z "$compiler" ]
     then
         echo_err "Could not find clang++ or g++ compiler in \$PATH" && return 1
     fi
@@ -229,9 +301,14 @@ function ccc()
     done
     args=("${non_filenames[@]}")
 
-    [ "${#filenames[@]}" -eq 0 ] && echo_err "Could not find filename" \
-        && return 1
-    executable_name="${filenames[0]%.*}"
+
+    if [ "$print_compile_flags_only" = false ]
+    then
+        # If no filenames to compile, error and quit
+        [ "${#filenames[@]}" -eq 0 ] && echo_err "Could not find filename" \
+            && return 1
+        executable_name="${filenames[0]%.*}"
+    fi
 
 
     # Find if -o specified and if so don't append it and extract executable name
@@ -251,7 +328,9 @@ function ccc()
     # This line was -o $executable_name which caused much pain
     # Actually compilers accept -oname but we'll use "-o" "name" as two
     # arguments passed in order because it is less "astonishing" to me
-    compiler_arg_defaults["-o"]="-o $executable_name"
+    if [ "$print_compile_flags_only" = false ]; then
+        compiler_arg_defaults["-o"]="-o $executable_name"
+    fi
 
 
     # Find and save arguments that are absent and default values should be used
@@ -284,41 +363,100 @@ function ccc()
     # Compiler flags that are always added
     # -Weffc++ - apparently can be overly sensitive. Should warn on
     # uninitialised variables in constructors.
+                    #"-Wno-sign-conversion"
+                    #"-Werror=shadow"
+                    # "-Wshadow=compatible-local"
+                    # "-Wduplicated-branches"
+                    # "-Wduplicated-cond"
+                    # "-Wlogical-op"
+                    # "-Wuseless-cast"
     declare -a compiler_flags=(
-                    "-g"
                     "-Wall"
-                    "-Wextra"
-                    "-pedantic"
-                    "-Wfloat-equal"
-                    "-Wwrite-strings"
-                    "-Wswitch-enum"
-                    "-Wunreachable-code"
-                    "-Wconversion"
+                    "-Wcast-align"
                     "-Wcast-qual"
-                    "-Wstrict-overflow=5"
-                    "-Werror=shadow"
-                    "-fverbose-asm"
-                    "-lstdc++fs"
+                    "-Wconversion"
+                    "-Wdisabled-optimization"
+                    "-Wdouble-promotion"
+                    # "-Weffc++"
                     "-Werror=return-type"
-                    "-Wuninitialized"
-                    "-Weffc++"
-                    "-L/usr/local/lib"
-                    "-lfmt"
-                    "-pthread"
+                    "-Wextra"
+                    "-Wfloat-equal"
+                    "-Wformat=2"
+                    # "-Werror=shadow"
+                    "-Wmissing-declarations"
+                    "-Wmissing-include-dirs"
+                    "-Wnull-dereference"
+                    "-Wredundant-decls"
+                    "-Wstrict-overflow=5"
+                    "-Wswitch-default"
+                    "-Wswitch-enum"
+                    "-Wundef"
+                    "-Wunreachable-code"
+                    "-Wwrite-strings"
+
                     "-fdiagnostics-color"
+                    "-fsanitize=address,undefined"
+                    "-L/usr/local/lib"
+                    "-Wl,-rpath,/usr/local/lib"
+                    "-fverbose-asm"
+                    "-g"
+                    "-lfmt"
+                    "-lstdc++fs"
+                    "-pedantic"
+                    "-pthread"
                     )
-    #-fsanitize=address,undefined
 
 
     # Actual cmds
     # Putting compiler flags at end for now so options like -lstdc++fs will work
     # Order matters: https://stackoverflow.com/a/409470/8594193
-    declare -a compile_args=(
+    declare -a compile_args compile_args_pre_remove=(
                     "${filenames[@]}"
                     "${compiler_default_args_to_add[@]}"
                     "${user_compiler_args[@]}"
                     "${compiler_flags[@]}"
                     )
+    for arg in "${compile_args_pre_remove[@]}"
+    do
+        add=true
+        # Add check to warn if not found
+        for reg in "${compiler_args_to_remove[@]}"
+        do
+            if [[ "$arg" =~ $reg ]]; then
+                add=false
+                break
+            fi
+        done
+
+        if [ "$add" = true ]
+        then
+            compile_args+=("$arg")
+        fi
+    done
+
+
+    # Add warning if using google-benchmark and have left the sanitizers on as I
+    # keep forgetting
+    if needle_regex_in_haystack_array "^-fsanitize.*$" "${compile_args[@]}"
+    then
+        if needle_regex_in_haystack_array "^-O3$" "${compile_args[@]}"
+        then
+            echo_err "Warning/reminder from ccc: using -fsanitize with -O3"\
+                "(add --ccc-no-fsanitize to remove)"
+        fi
+        if needle_regex_in_haystack_array "^-lbenchmark$" "${compile_args[@]}"
+        then
+            echo_err "Warning/reminder from ccc: using -fsanitize with -lbenchmark"\
+                "(add --ccc-no-fsanitize to remove)"
+        fi
+        if needle_regex_in_haystack_array "^.*libbenchmark.*$" \
+            "${compile_args[@]}"
+        then
+            echo_err "Warning/reminder from ccc: using -fsanitize with libbenchmark"\
+                "(add --ccc-no-fsanitize to remove)"
+        fi
+    fi
+
 
     # echo "compiler [${compiler}]"
     # echo "compiler_default_args_to_add [${compiler_default_args_to_add[@]}]"
@@ -347,13 +485,27 @@ function ccc()
     # done
     # echo "compiler [$compiler]"
     # echo "compile_args [${compile_args[@]}]"
+
+    # # Set compile to lowest niceness
+    # niceness="nice -n 19"
+
+    if [ "$print_compile_flags_only" = true ]; then
+        # Convenience for clangd compile_flags.txt to parse ".h" header files as
+        # c++ and not c
+        compile_args=( "-xc++" "${compile_args[@]}" )
+        local IFS=$'\n'
+        echo "${compile_args[*]}"
+        return 0
+    fi
+
     if [ "$verbose" = true ]; then
         echo "$compiler" "${compile_args[@]} && $executable_name" "${program_args[@]}"
     fi
     "$compiler" "${compile_args[@]}" && "$executable_name" "${program_args[@]}"
 }
+export -f ccc
 
-function touchcpp()
+function touch_cpp()
 {
     : "${1?"Provide cpp filename"}"
     [ -f "$1" ] && echo_err "File with name $1 exists" && return 1
@@ -362,29 +514,81 @@ function touchcpp()
     local space="  "
     # Using <<- with the dash to disable leading tabs - see heredoc
     cat <<- EOF >> "$1"
+		//#include "prettyprint.hpp"
+		//#include <fmt/format.h>
+		//#include <fmt/ranges.h>
+		//#include <fmt/ostream.h>
+		//#include <range/v3/all.hpp>
+
 		#include <algorithm>
 		#include <cassert>
 		#include <iostream>
 		#include <string>
 		#include <vector>
 
-		//#include "prettyprint.hpp"
-		//#include <fmt/format.h>
-
 		using namespace std::literals;
 
-		int main (int /*argc*/, char** /*argv*/)
+		int main(int /*argc*/, char** /*argv*/)
 		{
 		${space}std::cout << std::boolalpha;
 		${space}std::cout << "Hello world!" << "\n";
 		}
 	EOF
 }
+export -f touch_cpp
+
+function touch_hpp()
+{
+    # TODO: fix to get basename for guard if do "touch_hpp include/a.hpp"
+    : "${1?"Provide hpp filename"}"
+    [ -f "$1" ] && echo_err "File with name $1 exists" && return 1
+
+    filename="$1"
+    guard="${filename//./_}"    # Replace "." with "_"
+    guard="${guard^^}"          # To uppercase
+
+    # Assumes file spacing is 2 spaces
+    local space="  "
+    # Using <<- with the dash to disable leading tabs - see heredoc
+    cat <<- EOF >> "$filename"
+		#ifndef ${guard}
+		#define ${guard}
+
+		#endif // ${guard}
+	EOF
+}
+export -f touch_hpp
+
+function touch_cpp_hpp()
+{
+    default_hpp="hpp"
+    default_cpp="cpp"
+    help_text="Provide filename stem (without cpp or h etc. suffix)
+        Optional 2nd arg is header file extension, default: \"${default_hpp}\"
+        Optional 3rd arg is cpp file extension, default: \"${default_cpp}\""
+    # This works with set -e, whereas '-z "$1"' doesn't
+    if [ -z "${1+_}" ]
+    then
+        printf "$help_text\n"
+        return 1
+    fi
+    header_file_extension="${2:-${default_hpp}}"
+    cpp_file_extension="${3:-${default_cpp}}"
+
+    hpp="$1.$default_hpp"
+    cpp="$1.$default_cpp"
+
+    [ -f "$hpp" ] && echo_err "Header file \"$hpp\" exists" && return 1
+    [ -f "$cpp" ] && echo_err "Cpp file \"$cpp\" exists" && return 1
+    touch_hpp "$hpp"
+    touch_cpp "$cpp"
+}
+export -f touch_cpp_hpp
 
 function touchpy3()
 {
     : "${1?"Provide py filename"}"
-    [ -f "$1" ] && echo_err_exit "File with name $1 exists"
+    [ -f "$1" ] && echo_err "File with name $1 exists"
 
     # Assumes file spacing is 4 spaces
     local space="    "
@@ -511,9 +715,10 @@ function build()
 function after_build_insert_executable_on_line()
 {
     # Find most recently modified executable file at the lowest depth
-    executable="$(find build -maxdepth 2 -type f -executable -printf \
-        "%d %T@ %p\n" | sort -r --key=1n,2n | head -n 1 | \
-        sed -E "s/^[0-9]+ +[0-9]+\.[0-9]+ //")"
+    executable="$(get_executable build)"
+    # executable="$(find build -maxdepth 2 -type f -executable -printf \
+        # "%d %T@ %p\n" | sort -r --key=1n,2n | head -n 1 | \
+        # sed -E "s/^[0-9]+ +[0-9]+\.[0-9]+ //")"
     insert_with_delay 0.16 "$executable"
 }
 export -f after_build_insert_executable_on_line
@@ -532,6 +737,288 @@ function mm()
 {
     build "$@"
 }
+
+function gen_simple_cmake()
+(
+    # Generates a simple CMakeLists.txt
+    # Call with no arguments to use current directory
+    # Call with argument - to print to stdout
+    # Call with directory argument to create a CMakeLists.txt in that dir
+
+    set +eu
+    # Quotes round EOF to avoid expanding heredoc variables
+    local cmakelists_txt_contents
+    read -r -d '' cmakelists_txt_contents <<- 'EOF'
+	cmake_minimum_required(VERSION 3.16)
+	project(test_project CXX)
+
+	set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+	# set(CMAKE_VERBOSE_MAKEFILE ON)
+	set(CMAKE_CXX_STANDARD 17)
+	set(CMAKE_CXX_STANDARD_REQUIRED ON)
+	set(CMAKE_CXX_EXTENSIONS OFF)
+
+	find_package(package_name REQUIRED)
+
+	add_executable(${PROJECT_NAME} main.cpp)
+	target_link_libraries(${PROJECT_NAME} PUBLIC library_name::library_name)
+	EOF
+    if [ -z "$1" ]; then
+        if ! [ -f CMakeLists.txt ]; then
+            # I suppose technically could have race condition so safer to append
+            echo "$cmakelists_txt_contents" >> CMakeLists.txt
+        else
+            echo_err "CMakeLists.txt in current directory exists"
+            return 1
+        fi
+    elif [ "$1" == - ]; then
+        echo "$cmakelists_txt_contents"
+    elif [ -d "$1" ]; then
+        # Cleaner way call this function again but error message needs to change
+        if ! [ -f "$1"/CMakeLists.txt ]; then
+            # I suppose technically could have race condition so safer to append
+            echo "$cmakelists_txt_contents" >> "$1"/CMakeLists.txt
+        else
+            echo_err "CMakeLists.txt in $1 exists"
+            return 1
+        fi
+    fi
+)
+
+function cmake_install_test()
+(
+    # Since this runs in a subshell we don't need to bother with the "local"
+    # keyword
+
+    my_name="cmake_install_test"
+
+    set +eu
+    read -r -d '' help_string <<- EOF
+
+	Test that a CMake library installs as we would expect and that it can be
+	consumed either via find_package or add_subdirectory.
+	For example, let's test a CMake version of cxx-prettyprint (a header-only
+	pretty printer for c++ standard library containers).
+	Given that we have a CMakeLists.txt for cxx-prettyprint and the library files
+	in the directory cxx-prettyprint.
+	And we have a simple CMake test project in the directory prettyprint_test:
+	  prettyprint_test
+	    CMakeLists.txt
+	        - containing roughly
+	          project(test_cxx-prettyprint)
+	          find_package(cxx-prettyprint)
+	          # More CMake stuff (omitted)...
+	          add_executable(\${PROJECT_NAME} main.cpp)
+	          target_link_libraries(\${PROJECT_NAME} cxx-prettyprint::cxx-prettyprint)
+	    main.cpp
+	        - containing roughly
+	          #include <iostream>
+	          #include <vector>
+	          #include "prettyprint.hpp"
+	          int main() {
+	            const std::vector<int> j{9};
+	            std::cout << j << "\n";
+	          }
+
+	We run
+	${my_name} -s /path/to/cxx-prettyprint -t /path/to/prettyprint_test
+
+	This will build the library and install it to a temporary location inside
+	--test_folder (a folder called cmake_test_[find_package_name] by default).
+	It will then check whether the test project can build and consume the library
+	via find_package, and then via add_subdirectory.
+	It will also print the tree of the library install so you can check it looks
+	correct.
+
+	    -s|--source_package_dir)
+	        Directory containing the CMakeLists.txt of the package we wish to test
+	    -t|--test_package_dir)
+	        Directory containing the CMakeLists.txt of a CMake project to test the
+	        package can be consumed via find_package
+
+	Optional:
+	    -b|--build_folder|--test_folder)
+	        Build directory where build folders will be created
+	        Defaults to cmake_test_[find_package_name]
+	    -c|--cmake_arguments)
+	        Arguments to be passed to CMake
+	        Eg. "-DCMAKE_BUILD_TYPE=Debug -DCMAKE_VERBOSE_MAKEFILE=ON"
+	    -p|--find_package_name)
+	        Name of the package in the CMake find_package([find_package_name]) call
+	        Defaults to the string inside the source_package_dir's project() call
+	    -e|--executable_name)
+	        Executable name in the test_package to run to test the program
+	        If unspecified, the most recently modified executable will be run that
+	        was built
+	    -h|--help)
+	        Print help
+	EOF
+
+    if [ $# -eq 0 ]; then
+        echo "$help_string"
+        return 0
+    fi
+
+    source_package_dir=""
+    test_package_dir=""
+
+    # Folder name where all the build/test folders will be placed
+    # Defaults to "cmake_test_$find_package_name"
+    test_folder=""
+
+    # Could split this into source build/package consumption cmake args if needed
+    cmake_arguments="-DCMAKE_BUILD_TYPE=Debug"
+
+    # find_package_name will be pulled from the project name in
+    # $source_package_dir/CMakeLists.txt
+    find_package_name=""
+
+    # Will just execute most recently modified executable in build dir
+    executable_name=""
+
+    test_package_install_dir="test_package_install_dir"
+
+    # We use "shift; shift" here instead of "shift 2"
+    # as running "cmake_install_test -s" hangs with "shift 2" but correctly
+    # errors out using "shift; shift"
+    while [[ $# -gt 0 ]]
+    do
+        arg="$1"
+        case "$arg" in
+            -h|--help)
+                echo "$help_string"
+                return 0
+                ;;
+            -s|--source_package_dir)
+                source_package_dir="$2"
+                shift; shift
+                ;;
+            -t|--test_package_dir)
+                test_package_dir="$2"
+                shift; shift
+                ;;
+            -b|--build_folder|--test_folder)
+                test_folder="$2"
+                shift; shift
+                ;;
+            -c|--cmake_arguments)
+                cmake_arguments="$2"
+                shift; shift
+                ;;
+            -p|--find_package_name)
+                find_package_name="$2"
+                shift; shift
+                ;;
+            -e|--executable_name)
+                executable_name="$2"
+                shift; shift
+                ;;
+            *)
+                echo_err "Unrecognised argument: $arg"
+                return 1
+                ;;
+        esac
+    done
+
+    set -eu
+
+    if [ -z "$source_package_dir" ]; then
+        echo_err "source_package_dir may not be empty"
+        return 1
+    fi
+
+    if [ -z "$test_package_dir" ]; then
+        echo_err "test_package_dir may not be empty"
+        return 1
+    fi
+
+    ### Don't edit below this line
+
+    if [ "$EUID" -eq 0 ]
+      then echo "Please don't run as root, it's scary..."
+      return 1
+    fi
+
+    # Setup variables and remove old directories
+    # source_package="$(get_realpath $source_package)"
+    # Must be computed before "cd"ing to test_folder to get the right absolute path
+    # template_cmake_dir="$(get_realpath $template_cmake_dir)"
+
+    source_package_dir="$(get_realpath "$source_package_dir")"
+    test_package_dir="$(get_realpath "$test_package_dir")"
+
+    find_package_name="$(sed -n -E "s/^project\(([^ ]*).*$/\1/p" "$source_package_dir"/CMakeLists.txt)"
+
+    if [ -z "$test_folder" ]; then
+        test_folder="cmake_test_$find_package_name"
+    fi
+
+    mkdir -p "$test_folder"
+    cd "$test_folder"
+
+    # Make absolute
+    test_folder="$(pwd)"
+
+    # Must be computed after "cd"ing to test_folder to get the right absolute path
+    test_package_install_dir="$(get_realpath test_package_install_dir)"
+
+    mkdir -p "$test_package_install_dir"
+
+    # Compile and install package
+    mkdir -p build
+    cd build
+    cmake "$source_package_dir" $cmake_arguments \
+        -DCMAKE_INSTALL_PREFIX="$test_package_install_dir"
+    cmake --build .
+    cmake --install .
+    cd ..
+    # ctest --progress .
+
+    printf "\nInstalled package (what would be in /usr/local/)\n"
+    tree "$test_package_install_dir"
+
+    # Test find_package consumption of package
+    printf "\nTest find_package version\n"
+    mkdir -p build_find_package
+    cd build_find_package
+    cmake "$test_package_dir" $cmake_arguments \
+        -DCMAKE_PREFIX_PATH="$test_package_install_dir"
+    cmake --build .
+    if [ -z "$executable_name" ]; then
+        executable_name="$(get_executable .)"
+    fi
+    ./"$executable_name"
+    cd ..
+
+    # Test add_subdirectory consumption of package
+    dst="$(get_realpath test_package_source)"
+    echo "copying test_package_dir $test_package_dir to $dst excluding $test_folder"
+    # return 0
+    # Copy the test package source
+    # rsync -a  "$test_package_dir" "$dst" --exclude "$d"
+    # Trailing slash necessary to copy source contents and not source dir itself
+    # The exclude is so if called via cmake_install_test -s .. -t . this won't
+    # try and copy the test package directory into itself
+    # Still recursive madness if the other way!
+    rsync -aq "$test_package_dir/" "$dst" --exclude "$test_folder"
+    cd test_package_source
+    # Change find_package to add_subdirectory in CMakeLists.txt
+    sed -E -i "s/(^.*find_package\($find_package_name.*)$/# \1\n# find_package substituted with add_subdirectory\nadd_subdirectory($find_package_name)/" CMakeLists.txt
+    # Symlink back to the original package as if it was a subdirectory
+    # ln -fs "$source_package_dir" "$find_package_name"
+    cp -r "$source_package_dir" "$find_package_name"
+    cd ..
+
+    # Test add_subdirectory building of package
+    printf "\nTest add_subdirectory version\n"
+    mkdir -p build_add_subdirectory
+    cd build_add_subdirectory
+    cmake ../test_package_source $cmake_arguments
+    cmake --build .
+    ./"$executable_name"
+    cd ..
+
+)
 
 # alias m=""
 # alias mm="build"
@@ -723,3 +1210,54 @@ alias wpa_cli="sudo wpa_cli"
 export LD_PRELOAD=
 
 export PATH="$PATH:$HOME/Qt/Tools/QtCreator/bin"
+
+
+# Colors
+default=$(tput sgr0)
+red=$(tput setaf 1)
+green=$(tput setaf 2)
+purple=$(tput setaf 5)
+orange=$(tput setaf 9)
+
+# Less colors for man pages
+export PAGER=less
+# Begin blinking
+export LESS_TERMCAP_mb=$red
+# Begin bold
+export LESS_TERMCAP_md=$orange
+# End mode
+export LESS_TERMCAP_me=$default
+# End standout-mode
+export LESS_TERMCAP_se=$default
+# Begin standout-mode - info box
+export LESS_TERMCAP_so=$purple
+# End underline
+export LESS_TERMCAP_ue=$default
+# Begin underline
+export LESS_TERMCAP_us=$green
+
+# https://superuser.com/a/476874/976427
+# https://askubuntu.com/a/897399
+# Fix when accidentally TSTP by pressing control-z, find pid, then run
+# kill -CONT with the pid to resume
+# ps aux | awk '$8~/T/' # kill -CONT "pid"
+
+# https://cmake.org/cmake/help/v3.17/envvar/CMAKE_EXPORT_COMPILE_COMMANDS.html
+export CMAKE_EXPORT_COMPILE_COMMANDS=TRUE
+
+export PATH="/home/justin/emsdk:/home/justin/emsdk/upstream/emscripten:/home/justin/emsdk/node/12.18.1_64bit/bin:$PATH"
+
+# Treesize for linux - https://unix.stackexchange.com/a/125451/358344
+alias ncdu="ncdu -r --color dark"
+
+# https://stackoverflow.com/a/9328525/8594193
+function print_all_variables_cmake
+{
+    cat <<- 'EOF'
+get_cmake_property(_variableNames VARIABLES)
+list (SORT _variableNames)
+foreach (_variableName ${_variableNames})
+    message(STATUS "${_variableName}=${${_variableName}}")
+endforeach()
+EOF
+}

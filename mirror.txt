@@ -8,3 +8,4 @@
 .dircolors
 .config/nvim/init.vim
 .config/nvim/coc-settings.json
+.local/bin/http_server.py

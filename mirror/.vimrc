@@ -161,10 +161,16 @@ call Tab(4, 0)
 augroup Filetypes
     autocmd!
 
+    " Match a file with 'CMakeLists' in its name as a cmake file
+    autocmd BufNewFile,BufRead *CMakeLists* setlocal filetype=cmake
+
+    autocmd BufNewFile,BufRead *.tpp setlocal filetype=cpp
+
+    " Should these be setlocal?
     " Makefile.inc is recognised as a Makefile by vim
-    autocmd BufNewFile,BufRead Makefile,Makefile.* set filetype=make
-    " Real tabs, and they appear as 8 spaces wide
-    autocmd FileType make set noexpandtab shiftwidth=8 softtabstop=0 tabstop=8
+    autocmd BufNewFile,BufRead Makefile,Makefile.* setlocal filetype=make
+    " Real tabs, and they appear as 4 spaces wide
+    autocmd FileType make setlocal noexpandtab shiftwidth=4 softtabstop=0 tabstop=4
 
     " Default to 4 tabs if no filetype detected - not needed with default to 4
     "au BufNewFile,BufRead * if &ft == '' | call Tab(4) | endif
@@ -540,3 +546,7 @@ let g:NERDSpaceDelims = 1
 " error with cursor
 set shortmess+=T
 
+" Don't open folds when navigating using { or }
+set foldopen-=block
+
+nnoremap <silent> <F5> :windo set scrollbind!<CR>
