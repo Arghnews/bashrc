@@ -39,6 +39,6 @@
       "filetypes": ["cpp", "arduino"]
     }
   },
-  "coc.preferences.extensionUpdateCheck": "never"
+  "coc.preferences.extensionUpdateCheck": "never",
 }
 

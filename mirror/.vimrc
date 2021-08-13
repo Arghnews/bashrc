@@ -45,6 +45,8 @@ Plug 'tpope/vim-surround' " Better quote handling
 " Plug 'neoclide/coc.nvim', {'tag': 'v0.0.72', 'do': './install.sh'}
 Plug 'neoclide/coc.nvim', {'tag': '*', 'branch': 'release'}
 
+Plug 'pappasam/coc-jedi', { 'do': 'yarn install --frozen-lockfile && yarn build' }
+
 Plug 'neovimhaskell/haskell-vim'
 
 " Plug 'Valloric/YouCompleteMe' " The monster
@@ -550,3 +552,26 @@ set shortmess+=T
 set foldopen-=block
 
 nnoremap <silent> <F5> :windo set scrollbind!<CR>
+
+function FileExists(FileName)
+    return !empty(glob(a:FileName))
+endfunction
+
+
+" TODO: add augroup?
+" https://clang.llvm.org/docs/ClangFormat.html
+if FileExists("/usr/local/share/clang/clang-format.py")
+    function! Formatonsave()
+        let l:formatdiff = 1
+        pyf /usr/local/share/clang/clang-format.py
+    endfunction
+    autocmd BufWritePre *.h,*.cc,*.cpp,*.hpp,*.tpp call Formatonsave()
+endif
+
+" https://github.com/neoclide/coc.nvim/issues/609#issuecomment-715461414
+nnoremap <nowait><expr> <C-f> coc#float#has_scroll() ? coc#float#scroll(1) : "\<C-f>"
+nnoremap <nowait><expr> <C-b> coc#float#has_scroll() ? coc#float#scroll(0) : "\<C-b>"
+inoremap <nowait><expr> <C-f> coc#float#has_scroll() ? "\<c-r>=coc#float#scroll(1)\<cr>" : "\<Right>"
+inoremap <nowait><expr> <C-b> coc#float#has_scroll() ? "\<c-r>=coc#float#scroll(0)\<cr>" : "\<Left>"
+
+

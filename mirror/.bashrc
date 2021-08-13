@@ -66,6 +66,7 @@ function get_executable()
         sed -E "s/^[0-9]+ +[0-9]+\.[0-9]+ //")"
     echo "$executable"
 }
+export -f get_executable
 
 function touchy()
 {
@@ -733,6 +734,23 @@ function m()
     fi
 }
 
+function cm()
+{
+    if [ -x ".m.sh" ]
+    then
+        ./.m.sh "$@"
+    else
+        # Copied from function build for now
+        (cd build && conan install -pr clang .. && cmake .. "$@" && \
+            cmake --build . --parallel "$numb_cpus")
+    fi
+}
+
+function b()
+(
+    cd build && cmake --build . --parallel "$numb_cpus" && cd .. && after_build_insert_executable_on_line
+)
+
 function mm()
 {
     build "$@"
@@ -1245,7 +1263,7 @@ export LESS_TERMCAP_us=$green
 # https://cmake.org/cmake/help/v3.17/envvar/CMAKE_EXPORT_COMPILE_COMMANDS.html
 export CMAKE_EXPORT_COMPILE_COMMANDS=TRUE
 
-export PATH="/home/justin/emsdk:/home/justin/emsdk/upstream/emscripten:/home/justin/emsdk/node/12.18.1_64bit/bin:$PATH"
+# export PATH="/home/justin/emsdk:/home/justin/emsdk/upstream/emscripten:/home/justin/emsdk/node/12.18.1_64bit/bin:$PATH"
 
 # Treesize for linux - https://unix.stackexchange.com/a/125451/358344
 alias ncdu="ncdu -r --color dark"
@@ -1261,3 +1279,5 @@ foreach (_variableName ${_variableNames})
 endforeach()
 EOF
 }
+
+#export PATH="$PATH:/home/justin/js/node-v12.19.0-linux-x64/bin"
